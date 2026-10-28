@@ -1,0 +1,16 @@
+# Java / Maven
+backend/target/
+*.class
+# Environment and secrets
+.env
+.env.*
+!.env.example
+# JS
+frontend/node_modules/
+frontend/dist/
+# IDE
+.idea/
+.vscode/
+# OS
+.DS_Store
+Thumbs.db
