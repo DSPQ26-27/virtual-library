@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthContext } from "./AuthContext.js";
 import {
   getCurrentUser,
@@ -13,6 +13,11 @@ export default function AuthProvider({ children }) {
   const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState(false);
   const operationInProgress = useRef(false);
+  const expireSession = useCallback(() => {
+  setUser(null);
+  setSessionError("");
+  setStatus("ready");
+}, []);
 
   useEffect(() => {
     let active = true;
@@ -82,17 +87,18 @@ export default function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{
-        user,
-        status,
-        sessionError,
-        busy,
-        login,
-        logout,
-        retrySession,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  value={{
+    user,
+    status,
+    sessionError,
+    busy,
+    login,
+    logout,
+    retrySession,
+    expireSession,
+  }}
+>
+  {children}
+</AuthContext.Provider>
   );
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, Navigate, Route, Routes } from "react-router";
 import { useAuth } from "./auth/AuthContext.js";
 import LoginForm from "./components/LoginForm.jsx";
+import CatalogPage from "./components/CatalogPage.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import RegisterForm from "./components/RegisterForm.jsx";
 import "./App.css";
@@ -96,10 +97,7 @@ function App() {
           path="/catalogo"
           element={
             <ProtectedRoute>
-              <section aria-labelledby="catalogo-titulo">
-                <h2 id="catalogo-titulo">Catálogo</h2>
-                <p>Bienvenido, {user?.nombre}.</p>
-              </section>
+              <CatalogPage />
             </ProtectedRoute>
           }
         />
