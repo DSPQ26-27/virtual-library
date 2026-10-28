@@ -2,3 +2,50 @@ main {
   padding: 2rem;
   font-family: Arial, sans-serif;
 }
+
+.app-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.app-nav a {
+  color: #1d4ed8;
+}
+
+.app-nav button,
+.app-notice button {
+  padding: 0.6rem 1rem;
+  border: 1px solid #6b7280;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #172033;
+  font: inherit;
+  cursor: pointer;
+}
+
+.app-nav button:disabled,
+.app-notice button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.app-nav a:focus-visible,
+.app-nav button:focus-visible,
+.app-notice button:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+
+.app-notice {
+  max-width: 600px;
+  margin: 1rem 0;
+}
+
+.app-notice p,
+.app-error {
+  color: #b91c1c;
+  line-height: 1.5;
+}
