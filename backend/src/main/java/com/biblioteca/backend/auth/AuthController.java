@@ -24,6 +24,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import io.swagger.v3.oas.annotations.Parameter;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -45,19 +47,53 @@ public class AuthController {
         return new CsrfResponse(token.getHeaderName(), token.getToken());
     }
 
-    @PostMapping("/login")
-    public UserResponse login(@Valid @RequestBody LoginRequest body,
-                              HttpServletRequest request, HttpServletResponse response) {
-        var authentication = authenticationManager.authenticate(
-            UsernamePasswordAuthenticationToken.unauthenticated(body.email(), body.password()));
-        // El login manual debe rotar la sesión, renovar CSRF y guardar el contexto explícitamente.
-        sessionStrategy.onAuthentication(authentication, request, response);
-        var context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(authentication);
-        SecurityContextHolder.setContext(context);
-        contextRepository.saveContext(context, request, response);
-        return UserResponse.from((LibraryUserDetails) authentication.getPrincipal());
-    }
+@PostMapping("/login")
+public UserResponse login(
+        @Valid @RequestBody LoginRequest body,
+
+        @Parameter(
+            description = "Token CSRF obtenido de GET /api/auth/csrf",
+            required = true
+        )
+        @RequestHeader("X-CSRF-TOKEN") String csrfToken,
+
+        HttpServletRequest request,
+        HttpServletResponse response) {
+
+    // 1. Autenticar al usuario con email y contraseña
+    var authentication = authenticationManager.authenticate(
+        UsernamePasswordAuthenticationToken.unauthenticated(
+            body.email(),
+            body.password()
+        )
+    );
+
+    // 2. Aplicar las medidas de seguridad de la sesión
+    // (rotación de sesión y renovación del token CSRF)
+    sessionStrategy.onAuthentication(
+        authentication,
+        request,
+        response
+    );
+
+    // 3. Crear el contexto de seguridad
+    var context = SecurityContextHolder.createEmptyContext();
+    context.setAuthentication(authentication);
+
+    // 4. Establecer y guardar el contexto de autenticación
+    SecurityContextHolder.setContext(context);
+    contextRepository.saveContext(
+        context,
+        request,
+        response
+    );
+
+    // 5. Devolver los datos del usuario autenticado
+    return UserResponse.from(
+        (LibraryUserDetails) authentication.getPrincipal()
+    );
+}
+
 
     @GetMapping("/me")
     public UserResponse me(@AuthenticationPrincipal LibraryUserDetails user) {
