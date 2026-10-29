@@ -1,3 +1,4 @@
+
 package com.biblioteca.backend.config;
 
 import org.springframework.context.annotation.Bean;
@@ -27,36 +28,99 @@ public class SecurityConfig {
             throws Exception {
 
         http
+            // Configuración de la sesión
             .securityContext(context -> context
                 .securityContextRepository(securityContextRepository()))
-            .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository()).ignoringRequestMatchers(
-                PathPatternRequestMatcher.withDefaults()
-                    .matcher(HttpMethod.POST, "/api/auth/register")))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.GET, "/api/health", "/api/auth/csrf").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.GET, "/api/libros", "/api/libros/**")
-                    .hasAnyRole("STUDENT", "LIBRARIAN", "ADMIN")
-                .requestMatchers("/api/libros", "/api/libros/**")
-                    .hasAnyRole("LIBRARIAN", "ADMIN")
-                .anyRequest().hasAnyRole("STUDENT", "LIBRARIAN", "ADMIN")
+
+            // Protección CSRF
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(csrfTokenRepository())
+                .ignoringRequestMatchers(
+                    PathPatternRequestMatcher.withDefaults()
+                        .matcher(HttpMethod.POST, "/api/auth/register")
+                )
             )
+
+            // Permisos de acceso a los endpoints
+            .authorizeHttpRequests(auth -> auth
+
+                // Endpoints públicos de autenticación
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/health",
+                    "/api/auth/csrf"
+                ).permitAll()
+
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/auth/register",
+                    "/api/auth/login"
+                ).permitAll()
+
+                // Swagger UI y documentación OpenAPI
+                .requestMatchers(
+                    "/swagger-ui.html",
+                    "/swagger-ui/**",
+                    "/v3/api-docs",
+                    "/v3/api-docs/**",
+                    "/v3/api-docs.yaml"
+                ).permitAll()
+
+                // Administración: solo administradores
+                .requestMatchers("/api/admin/**")
+                    .hasRole("ADMIN")
+
+                // Consultar libros: todos los usuarios autenticados
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/libros",
+                    "/api/libros/**"
+                ).hasAnyRole("STUDENT", "LIBRARIAN", "ADMIN")
+
+                // Modificar libros: bibliotecarios y administradores
+                .requestMatchers(
+                    "/api/libros",
+                    "/api/libros/**"
+                ).hasAnyRole("LIBRARIAN", "ADMIN")
+
+                // Resto de endpoints
+                .anyRequest()
+                    .hasAnyRole("STUDENT", "LIBRARIAN", "ADMIN")
+            )
+
+            // Desactivar el formulario de login de Spring Security
             .formLogin(AbstractHttpConfigurer::disable)
+
+            // Desactivar autenticación HTTP Basic
             .httpBasic(AbstractHttpConfigurer::disable)
+
+            // Utilizamos nuestro propio endpoint de logout
             .logout(AbstractHttpConfigurer::disable)
+
+            // Desactivar almacenamiento automático de peticiones
             .requestCache(AbstractHttpConfigurer::disable)
+
+            // Respuestas de error HTTP
             .exceptionHandling(errors -> errors
+
+                // 401: usuario no autenticado
                 .authenticationEntryPoint((request, response, exception) -> {
                     response.setStatus(401);
                     response.setContentType("application/json;charset=UTF-8");
-                    response.getWriter().write("{\"message\":\"Autenticación requerida.\"}");
+                    response.getWriter().write(
+                        "{\"message\":\"Autenticación requerida.\"}"
+                    );
                 })
+
+                // 403: usuario sin permisos
                 .accessDeniedHandler((request, response, exception) -> {
                     response.setStatus(403);
                     response.setContentType("application/json;charset=UTF-8");
-                    response.getWriter().write("{\"message\":\"Acceso denegado.\"}");
-                }));
+                    response.getWriter().write(
+                        "{\"message\":\"Acceso denegado.\"}"
+                    );
+                })
+            );
 
         return http.build();
     }
@@ -80,6 +144,7 @@ public class SecurityConfig {
     public SessionAuthenticationStrategy sessionAuthenticationStrategy() {
         return new CompositeSessionAuthenticationStrategy(List.of(
             new ChangeSessionIdAuthenticationStrategy(),
-            new CsrfAuthenticationStrategy(csrfTokenRepository())));
+            new CsrfAuthenticationStrategy(csrfTokenRepository())
+        ));
     }
 }
