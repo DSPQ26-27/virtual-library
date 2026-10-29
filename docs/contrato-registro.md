@@ -1,7 +1,7 @@
 # Contrato de registro de estudiantes
 
 Propuesto desde el frontend de la Issue #23.
-Pendiente de implementación y coordinación con #22 y #24.
+Implementado en el backend en la Issue #22 (RegistrationController).
 
 ## Petición
 
@@ -13,8 +13,10 @@ Campos:
 - nombre: texto obligatorio; se recortan los espacios exteriores;
   entre 2 y 100 caracteres después del recorte.
 - email: texto obligatorio; formato de correo válido; máximo 254
-  caracteres; se recortan los espacios exteriores.
-- password: texto obligatorio; mínimo 8 caracteres;
+  caracteres; se recortan los espacios exteriores. Se guarda en
+  minúsculas. La columna usuarios.email admite 254 caracteres (migración V2).
+- password: texto obligatorio; entre 8 y 72 caracteres (72 es el
+  límite de BCrypt);
   no puede contener únicamente espacios y no se recorta.
 
 El backend debe repetir las validaciones.
@@ -55,10 +57,17 @@ según sus requisitos.
 En desarrollo, Vite reenvía /api al backend http://localhost:8080.
 La configuración del despliegue se resolverá por separado.
 
-## Verificación pendiente
+## Verificación
 
-- Registro real y persistencia del usuario.
-- Validaciones del backend.
-- Correo duplicado.
-- Acceso anónimo al endpoint.
-- Revisión e integración mediante Pull Request.
+Cubierto por backend/src/test/java/com/biblioteca/backend/auth/RegistrationIntegrationTests.java:
+
+- [x] Registro real y persistencia del usuario
+  (validRegistrationCreatesStudentWithHashedPassword).
+- [x] Contraseña guardada como hash BCrypt, nunca en claro (mismo test).
+- [x] Rol STUDENT asignado por el servidor (clientCannotChooseItsRole).
+- [x] Validaciones del backend (invalidDataReturnsOneMessagePerField,
+  onlyInvalidFieldsAreReported, passwordLongerThanBcryptLimitIsRejected,
+  emailOf254CharactersIsAccepted, malformedOrEmptyBodyReturns400).
+- [x] Correo duplicado sin distinguir mayúsculas (duplicateEmailIsRejectedIgnoringCase).
+- [x] Acceso anónimo al endpoint: todas las pruebas se hacen sin sesión ni CSRF.
+- [ ] Revisión e integración mediante Pull Request.
