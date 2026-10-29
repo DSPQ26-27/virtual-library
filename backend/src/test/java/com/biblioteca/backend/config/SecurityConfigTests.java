@@ -4,7 +4,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.context.TestComponent;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.test.context.ContextConfiguration;
@@ -26,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebAppConfiguration
 @ContextConfiguration(classes = SecurityConfigTests.TestConfig.class)
 class SecurityConfigTests {
-    @Configuration
+    @TestConfiguration
     @EnableWebMvc
     @EnableWebSecurity
     @Import({SecurityConfig.class, TestEndpoints.class})
@@ -34,6 +35,7 @@ class SecurityConfigTests {
 
     // Controladores de prueba: no implementan las tareas de los compañeros.
     @RestController
+    @TestComponent
     static class TestEndpoints {
         @RequestMapping({"/api/health", "/api/auth/csrf", "/api/auth/register",
             "/api/auth/login", "/api/auth/logout", "/api/auth/me",

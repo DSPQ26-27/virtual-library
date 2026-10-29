@@ -8,7 +8,16 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.csrf.CsrfAuthenticationStrategy;
+import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
+import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.CompositeSessionAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+
+import java.util.List;
 
 @Configuration
 public class SecurityConfig {
@@ -18,7 +27,9 @@ public class SecurityConfig {
             throws Exception {
 
         http
-            .csrf(csrf -> csrf.ignoringRequestMatchers(
+            .securityContext(context -> context
+                .securityContextRepository(securityContextRepository()))
+            .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository()).ignoringRequestMatchers(
                 PathPatternRequestMatcher.withDefaults()
                     .matcher(HttpMethod.POST, "/api/auth/register")))
             .authorizeHttpRequests(auth -> auth
@@ -53,5 +64,22 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public SecurityContextRepository securityContextRepository() {
+        return new HttpSessionSecurityContextRepository();
+    }
+
+    @Bean
+    public HttpSessionCsrfTokenRepository csrfTokenRepository() {
+        return new HttpSessionCsrfTokenRepository();
+    }
+
+    @Bean
+    public SessionAuthenticationStrategy sessionAuthenticationStrategy() {
+        return new CompositeSessionAuthenticationStrategy(List.of(
+            new ChangeSessionIdAuthenticationStrategy(),
+            new CsrfAuthenticationStrategy(csrfTokenRepository())));
     }
 }

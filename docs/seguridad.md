@@ -25,9 +25,9 @@ Basic, el logout predeterminado y el almacenamiento de peticiones para
 redirección. Spring mantiene sus cabeceras de seguridad y política de caché.
 
 Se proporciona un PasswordEncoder BCrypt para su uso por registro y login.
-La migración actual usa ESTUDIANTE como rol por defecto; el responsable de
-Usuario y la autenticación deben coordinar su equivalencia con STUDENT
-antes de integrar. Esta tarea no modifica la entidad ni la migración ajenas.
+La migración actual usa ESTUDIANTE como rol por defecto. La #25 incorpora
+su equivalencia con STUDENT al cargar el usuario para autenticar, sin cambiar
+la entidad ni la migración ajenas. Ver `autenticacion.md`.
 
 ## Pruebas
 
@@ -46,8 +46,9 @@ contexto completo ni el recorrido con PostgreSQL y frontend.
 
 ## Pendiente de #25 e integración
 
-- Implementar csrf, login, me y logout según el contrato.
-- Persistir la autenticación en la sesión y proteger contra fijación de sesión.
-- Invalidar la sesión al salir y verificar cookies en desarrollo y producción.
+- La #25 implementa csrf, login, me y logout, persistencia del contexto,
+  cambio de identificador de sesión y renovación del token CSRF al autenticar.
+- La #25 invalida la sesión y elimina JSESSIONID al salir.
+- Verificar las cookies con HTTPS en el despliegue real.
 - Probar el recorrido completo con Usuario, registro y frontend reales.
-- Revisión por otro integrante e integración mediante PR antes de cerrar #24.
+- Revisión por otro integrante e integración de #25 mediante PR.
