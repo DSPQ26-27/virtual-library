@@ -1,7 +1,9 @@
 # Contrato de autenticación
 
-Propuesta del frontend #26, pendiente de coordinación e implementación
-con los responsables de #24 y #25.
+Contrato del frontend #26, implementado en el backend de #24 y #25.
+Login, recarga de sesión, logout y credenciales incorrectas comprobados
+manualmente en React con PostgreSQL local. Pendiente de revisión del equipo
+y del recorrido con registro y catálogo reales. Detalles en `autenticacion.md`.
 
 ## Mecanismo
 
@@ -95,5 +97,9 @@ La protección de rutas de React solo controla la interfaz.
 
 ## Estado
 
-Implementación frontend propuesta.
-Pendiente de pruebas integradas con el backend y revisión del equipo.
+Frontend y endpoints de autenticación implementados.
+La #25 añade pruebas del backend con base H2 aislada y sesiones entre peticiones:
+18 pruebas del backend y 23 del cliente frontend superadas el 29/10/2026.
+El usuario confirma además login, recarga, logout y rechazo de contraseña
+incorrecta desde React con PostgreSQL local. Pendiente de revisión del código
+y del recorrido con registro y catálogo reales.
