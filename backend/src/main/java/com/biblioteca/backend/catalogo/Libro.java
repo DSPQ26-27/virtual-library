@@ -1,3 +1,4 @@
+
 package com.biblioteca.backend.catalogo;
 
 import jakarta.persistence.Column;
@@ -7,10 +8,16 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-/** Libro del catálogo (#27). Sus copias físicas simuladas son los Ejemplar. */
+/**
+ * Representa un registro bibliográfico del catálogo.
+ *
+ * Un libro puede existir aunque la biblioteca no tenga
+ * ejemplares físicos de él.
+ */
 @Entity
 @Table(name = "libros")
 public class Libro {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -18,10 +25,10 @@ public class Libro {
     @Column(length = 17, unique = true)
     private String isbn;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 255)
     private String titulo;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 255)
     private String autor;
 
     @Column(length = 150)
@@ -33,11 +40,48 @@ public class Libro {
     @Column(name = "anio_publicacion")
     private Integer anioPublicacion;
 
-    /** Constructor vacío exigido por JPA. */
-    protected Libro() {}
+    // Nuevos campos incorporados mediante Flyway V5
 
-    public Libro(String isbn, String titulo, String autor, String editorial,
-                 String categoria, Integer anioPublicacion) {
+    @Column(name = "descripcion", columnDefinition = "TEXT")
+    private String descripcion;
+
+    @Column(name = "portada_url", length = 1000)
+    private String portadaUrl;
+
+    /**
+     * Identificador único de la edición de Open Library.
+     * Ejemplo: /books/OL123456M
+     */
+    @Column(name = "openlibrary_key", length = 50, unique = true)
+    private String openlibraryKey;
+
+    /**
+     * Identificador de la obra.
+     * Varias ediciones pueden compartir la misma obra.
+     */
+    @Column(name = "openlibrary_work_key", length = 50)
+    private String openlibraryWorkKey;
+
+    /**
+     * Origen del registro bibliográfico:
+     * MANUAL u OPEN_LIBRARY.
+     */
+    @Column(nullable = false, length = 20)
+    private String origen = "MANUAL";
+
+    // Constructor requerido por JPA
+    protected Libro() {
+    }
+
+    // Constructor original: mantener compatibilidad
+    public Libro(
+            String isbn,
+            String titulo,
+            String autor,
+            String editorial,
+            String categoria,
+            Integer anioPublicacion) {
+
         this.isbn = isbn;
         this.titulo = titulo;
         this.autor = autor;
@@ -46,11 +90,53 @@ public class Libro {
         this.anioPublicacion = anioPublicacion;
     }
 
-    public Long getId() { return id; }
-    public String getIsbn() { return isbn; }
-    public String getTitulo() { return titulo; }
-    public String getAutor() { return autor; }
-    public String getEditorial() { return editorial; }
-    public String getCategoria() { return categoria; }
-    public Integer getAnioPublicacion() { return anioPublicacion; }
+    // Getters
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getIsbn() {
+        return isbn;
+    }
+
+    public String getTitulo() {
+        return titulo;
+    }
+
+    public String getAutor() {
+        return autor;
+    }
+
+    public String getEditorial() {
+        return editorial;
+    }
+
+    public String getCategoria() {
+        return categoria;
+    }
+
+    public Integer getAnioPublicacion() {
+        return anioPublicacion;
+    }
+
+    public String getDescripcion() {
+        return descripcion;
+    }
+
+    public String getPortadaUrl() {
+        return portadaUrl;
+    }
+
+    public String getOpenlibraryKey() {
+        return openlibraryKey;
+    }
+
+    public String getOpenlibraryWorkKey() {
+        return openlibraryWorkKey;
+    }
+
+    public String getOrigen() {
+        return origen;
+    }
 }
