@@ -34,3 +34,21 @@ Libro, Ejemplar, EstadoEjemplar, LibroRepository, EjemplarRepository.
 CatalogoPersistenceTests: datos de muestra cargados, guardado y lectura
 de libro con ejemplar, ejemplares no prestables, estado no válido
 y código de ejemplar duplicado.
+
+## Búsqueda e índices (#47)
+
+La búsqueda del catálogo (LibroSpecifications, LibroService) filtra por
+texto, categoría y vista, y pagina en PostgreSQL. La migración V6
+(db/vendor/postgresql/V6__indices_busqueda_catalogo.sql) solo se aplica en
+PostgreSQL, porque usa la extensión pg_trgm, que no existe en H2:
+
+- idx_libros_titulo_trgm, idx_libros_autor_trgm, idx_libros_isbn_trgm:
+  índices GIN de trigramas para las búsquedas "contiene" (LIKE '%texto%').
+- idx_libros_categoria_lower: filtro de categoría sin distinguir mayúsculas.
+- idx_libros_titulo_id: orden por título con desempate por id.
+- idx_ejemplares_libro_activo_estado: vistas BIBLIOTECA y DISPONIBLES y
+  cálculo de disponible.
+
+Flyway busca las migraciones en db/migration (comunes) y en
+db/vendor/{vendor} (específicas de cada base de datos), según
+spring.flyway.locations en application.properties.
