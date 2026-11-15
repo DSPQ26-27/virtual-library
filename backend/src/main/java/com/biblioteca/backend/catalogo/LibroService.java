@@ -26,6 +26,11 @@ public class LibroService {
     }
 
     @Transactional(readOnly = true)
+    public List<String> listarCategorias() {
+        return libros.findCategorias();
+    }
+
+    @Transactional(readOnly = true)
     public PaginaLibrosResponse buscar(String texto, String categoria, VistaCatalogo vista, Pageable pedida) {
         // 1. PostgreSQL devuelve solo la página pedida (LIMIT/OFFSET) y el total (COUNT)
         Page<Libro> pagina = libros.findAll(

@@ -28,7 +28,7 @@ public final class LibroSpecifications {
 
             // 2. Categoría exacta (sin distinguir mayúsculas)
             if (categoria != null && !categoria.isBlank()) {
-                condiciones.add(cb.equal(cb.lower(libro.get("categoria")),
+                condiciones.add(cb.equal(cb.lower(cb.trim(libro.get("categoria"))),
                     categoria.trim().toLowerCase(Locale.ROOT)));
             }
 

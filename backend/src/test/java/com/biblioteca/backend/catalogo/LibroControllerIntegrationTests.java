@@ -1,6 +1,8 @@
 package com.biblioteca.backend.catalogo;
 
 import com.biblioteca.backend.BackendApplication;
+import jakarta.persistence.EntityManagerFactory;
+import org.hibernate.SessionFactory;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +15,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.hamcrest.Matchers.contains;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -38,6 +41,9 @@ public class LibroControllerIntegrationTests {
 
     @Autowired
     private JdbcTemplate jdbc;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
 
     // ---------- Utilidades ----------
 
@@ -197,6 +203,56 @@ public class LibroControllerIntegrationTests {
         buscar("?size=500&sort=isbn,asc")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.size").value(LibroService.TAMANO_MAXIMO));
+    }
+
+    @Test
+    void consultaDisponibilidadPorPaginaSinUnaConsultaPorLibro() throws Exception {
+        for (int i = 0; i < 5; i++) {
+            Libro libro = libro(null, "Zzconsultas " + i, "Autor", "Historia", 2000);
+            ejemplar(libro, "ZZ-CONSULTAS-" + i, "DISPONIBLE", true);
+        }
+        var estadisticas = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        boolean habilitadas = estadisticas.isStatisticsEnabled();
+        estadisticas.setStatisticsEnabled(true);
+        estadisticas.clear();
+        try {
+            buscar("?q=zzconsultas&size=20")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(5));
+            // Página + disponibilidad conjunta + COUNT opcional, nunca una consulta por libro.
+            long consultas = estadisticas.getPrepareStatementCount();
+            assertTrue(consultas >= 2 && consultas <= 3, "Consultas SQL ejecutadas: " + consultas);
+        } finally {
+            estadisticas.setStatisticsEnabled(habilitadas);
+        }
+    }
+
+    @Test
+    void variosEjemplaresNoDuplicanLibrosYBastaUnoDisponible() throws Exception {
+        Libro libro = libro("978-0-00-000010-0", "Zzmultiple", "Autor", "Historia", 2000);
+        ejemplar(libro, "ZZ-MULT-1", "PRESTADO", true);
+        ejemplar(libro, "ZZ-MULT-2", "DISPONIBLE", true);
+        ejemplar(libro, "ZZ-MULT-3", "DISPONIBLE", false);
+
+        buscar("?q=zzmultiple&vista=DISPONIBLES")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(1))
+            .andExpect(jsonPath("$.content.length()").value(1))
+            .andExpect(jsonPath("$.content[0].disponible").value(true));
+    }
+
+    @Test
+    void titulosIgualesSeDesempatanPorIdEntrePaginas() throws Exception {
+        Libro primero = libro("978-0-00-000011-1", "Zzempate", "Autor", "Historia", 2000);
+        Libro segundo = libro("978-0-00-000012-2", "Zzempate", "Autor", "Historia", 2001);
+
+        buscar("?q=zzempate&size=1&page=0")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[0].id").value(primero.getId()))
+            .andExpect(jsonPath("$.totalPages").value(2));
+        buscar("?q=zzempate&size=1&page=1")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[0].id").value(segundo.getId()));
     }
 
     @Test

@@ -19,7 +19,47 @@ function isBook(book) {
   );
 }
 
-export async function getBooks({ signal } = {}) {
+function isBookPage(page) {
+  return (
+    page !== null &&
+    typeof page === "object" &&
+    !Array.isArray(page) &&
+    Array.isArray(page.content) &&
+    page.content.every(isBook) &&
+    new Set(page.content.map((book) => book.id)).size === page.content.length &&
+    Number.isSafeInteger(page.page) && page.page >= 0 &&
+    Number.isSafeInteger(page.size) && page.size > 0 &&
+    Number.isSafeInteger(page.totalElements) && page.totalElements >= 0 &&
+    Number.isSafeInteger(page.totalPages) && page.totalPages >= 0 &&
+    page.content.length <= page.size &&
+    page.content.length <= page.totalElements &&
+    page.totalPages === Math.ceil(page.totalElements / page.size)
+  );
+}
+
+export async function getBooks({ q, categoria, vista, page, size, sort, signal } = {}) {
+  const params = new URLSearchParams();
+
+  for (const [name, value] of Object.entries({ q, categoria, vista, page, size, sort })) {
+    if (value === undefined || value === null) continue;
+    const text = String(value).trim();
+    if (text !== "") params.set(name, text);
+  }
+
+  const query = params.toString();
+  const url = query ? `/api/libros?${query}` : "/api/libros";
+  return requestCatalog(url, signal, isBookPage);
+}
+
+export async function getCategories({ signal } = {}) {
+  return requestCatalog("/api/libros/categorias", signal, (categories) =>
+    Array.isArray(categories) &&
+    categories.every((category) => typeof category === "string" && category.trim().length > 0)
+  );
+}
+
+// Ambos endpoints comparten sesión, timeout, cancelación y tratamiento de errores.
+async function requestCatalog(url, signal, isValid) {
   const timeout = AbortSignal.timeout(10000);
 
   const combinedSignal = signal
@@ -27,7 +67,7 @@ export async function getBooks({ signal } = {}) {
     : timeout;
 
   try {
-    const response = await fetch("/api/libros", {
+    const response = await fetch(url, {
       method: "GET",
       headers: {
         Accept: "application/json",
@@ -40,6 +80,7 @@ export async function getBooks({ signal } = {}) {
 
     if (response.status !== 200) {
       const messages = {
+        400: "Parámetro de búsqueda no válido.",
         401: "Tu sesión ha caducado. Inicia sesión de nuevo.",
         403: "No tienes permiso para consultar el catálogo.",
         404: "El servicio de catálogo todavía no está disponible.",
@@ -53,27 +94,23 @@ export async function getBooks({ signal } = {}) {
     }
 
     const text = await response.text();
-    let books;
+    let data;
 
     try {
-      books = JSON.parse(text);
+      data = JSON.parse(text);
     } catch {
       throw new CatalogError(
         "La respuesta del catálogo no tiene el formato esperado."
       );
     }
 
-    if (
-      !Array.isArray(books) ||
-      !books.every(isBook) ||
-      new Set(books.map((book) => book.id)).size !== books.length
-    ) {
+    if (!isValid(data)) {
       throw new CatalogError(
         "La respuesta del catálogo no tiene el formato esperado."
       );
     }
 
-    return books;
+    return data;
   } catch (error) {
     if (signal?.aborted) throw error;
 
