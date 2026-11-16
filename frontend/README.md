@@ -60,6 +60,19 @@ catálogo, edición (200), retirada con confirmación (204), libro conservado en
 base de datos con retirado = true y, como estudiante, sin botones de gestión y
 "No tienes permiso" en /admin/libros/nuevo.
 
+## Gestión de ejemplares (US06)
+
+En cada tarjeta del catálogo, **Ejemplares** abre `/libros/:id/ejemplares`.
+Los usuarios con sesión pueden ver el identificador, código y estado de cada
+ejemplar, el total registrado (incluidos los retirados) y los disponibles.
+
+Los bibliotecarios y administradores pueden registrar y editar con un único
+formulario, y retirar después de confirmar. La retirada conserva el registro.
+La API exige esos roles y token CSRF para las escrituras. Tras cada cambio se
+actualizan la lista y los contadores.
+
+Implementación, reglas, endpoints y validación: [gestión de ejemplares](../docs/gestion-ejemplares-us06.md).
+
 ## Desarrollo y pruebas
 
 Desde frontend, usando las dependencias existentes:
