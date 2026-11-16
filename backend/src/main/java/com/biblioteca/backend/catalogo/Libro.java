@@ -7,6 +7,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 
 /**
  * Representa un registro bibliográfico del catálogo.
@@ -68,6 +69,14 @@ public class Libro {
      */
     @Column(nullable = false, length = 20)
     private String origen = "MANUAL";
+
+    // Retirada lógica (#51, Flyway V7)
+
+    @Column(nullable = false)
+    private boolean retirado = false;
+
+    @Column(name = "fecha_retirada")
+    private LocalDateTime fechaRetirada;
 
     // Constructor requerido por JPA
     protected Libro() {
@@ -138,5 +147,37 @@ public class Libro {
 
     public String getOrigen() {
         return origen;
+    }
+
+    public boolean isRetirado() {
+        return retirado;
+    }
+
+    public LocalDateTime getFechaRetirada() {
+        return fechaRetirada;
+    }
+
+    // Gestión del catálogo (#51)
+
+    /** Actualiza los datos bibliográficos que puede editar el personal (#51). */
+    public void actualizarDatos(String isbn, String titulo, String autor, String editorial,
+                                String categoria, Integer anioPublicacion,
+                                String descripcion, String portadaUrl) {
+        this.isbn = isbn;
+        this.titulo = titulo;
+        this.autor = autor;
+        this.editorial = editorial;
+        this.categoria = categoria;
+        this.anioPublicacion = anioPublicacion;
+        this.descripcion = descripcion;
+        this.portadaUrl = portadaUrl;
+    }
+
+    /** Retirada lógica (#51): deja de mostrarse en el catálogo, pero no se borra. */
+    public void retirar() {
+        if (!retirado) {
+            retirado = true;
+            fechaRetirada = LocalDateTime.now();
+        }
     }
 }

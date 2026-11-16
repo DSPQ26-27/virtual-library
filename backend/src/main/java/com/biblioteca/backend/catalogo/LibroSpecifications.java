@@ -17,6 +17,9 @@ public final class LibroSpecifications {
         return (libro, query, cb) -> {
             List<Predicate> condiciones = new ArrayList<>();
 
+            // 0. Nunca mostrar libros retirados en el catálogo (#51)
+            condiciones.add(cb.isFalse(libro.get("retirado")));
+
             // 1. Texto libre: contiene la palabra en título, autor o ISBN (sin distinguir mayúsculas)
             if (texto != null && !texto.isBlank()) {
                 String patron = "%" + escaparLike(texto.trim().toLowerCase(Locale.ROOT)) + "%";
