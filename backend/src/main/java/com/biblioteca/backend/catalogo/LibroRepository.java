@@ -4,6 +4,7 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface LibroRepository extends JpaRepository<Libro, Long>, JpaSpecificationExecutor<Libro> {
 
@@ -11,8 +12,16 @@ public interface LibroRepository extends JpaRepository<Libro, Long>, JpaSpecific
     @Query("""
         SELECT MIN(TRIM(l.categoria)) FROM Libro l
         WHERE l.categoria IS NOT NULL AND TRIM(l.categoria) <> ''
+          AND l.retirado = false
         GROUP BY LOWER(TRIM(l.categoria))
         ORDER BY LOWER(TRIM(l.categoria))
         """)
     List<String> findCategorias();
+
+    /** Ids de los libros cuyo ISBN, sin guiones ni espacios, coincide con el indicado (#51). */
+    @Query("""
+        SELECT l.id FROM Libro l
+        WHERE UPPER(REPLACE(REPLACE(l.isbn, '-', ''), ' ', '')) = :isbn
+        """)
+    List<Long> findIdsByIsbnNormalizado(@Param("isbn") String isbn);
 }

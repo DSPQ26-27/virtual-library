@@ -52,3 +52,21 @@ PostgreSQL, porque usa la extensión pg_trgm, que no existe en H2:
 Flyway busca las migraciones en db/migration (comunes) y en
 db/vendor/{vendor} (específicas de cada base de datos), según
 spring.flyway.locations en application.properties.
+
+## Retirada lógica (#51)
+
+La migración V7 (db/migration/V7__retirada_logica_libros.sql) añade a libros:
+
+- retirado: BOOLEAN NOT NULL DEFAULT FALSE. Los libros existentes quedan en catálogo.
+- fecha_retirada: TIMESTAMP, cuándo se retiró.
+
+La entidad Libro expone dos métodos de gestión:
+
+- actualizarDatos(...): cambia solo los datos bibliográficos editables
+  (ISBN, título, autor, editorial, categoría, año, descripción y portada).
+  No permite cambiar id, origen ni las claves de Open Library.
+- retirar(): marca el libro como retirado y guarda la fecha. Si ya estaba
+  retirado no hace nada.
+
+Retirar no borra el libro ni sus ejemplares. La búsqueda (LibroSpecifications)
+y las categorías excluyen los libros retirados. Ver contrato-gestion-catalogo.md.

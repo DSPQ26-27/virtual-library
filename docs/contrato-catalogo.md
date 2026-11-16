@@ -94,6 +94,9 @@ HTTP 200 con content vacío, totalElements 0 y totalPages 0.
 
 No utilizar HTTP 204 para representar el catálogo vacío.
 
+Los libros retirados (#51) no aparecen en el listado, en las vistas, en los
+totales ni en GET /api/libros/categorias. Ver contrato-gestion-catalogo.md.
+
 ## Errores
 
 - HTTP 400: parámetro no válido, por ejemplo vista=OTRA.
