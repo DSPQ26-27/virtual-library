@@ -74,7 +74,9 @@ motivo y conserva los datos. Los préstamos activos no cuentan como disponibles.
 La API exige esos roles y token CSRF para las escrituras. Tras cada cambio se
 actualizan la lista y los contadores.
 
-Implementación, reglas, endpoints y validación: [gestión de ejemplares](../docs/gestion-ejemplares-us06.md).
+Implementación, reglas y endpoints: [gestión de ejemplares](../docs/gestion-ejemplares.md).
+Pruebas completas con React, Spring y PostgreSQL:
+[validación de ejemplares](../docs/validacion-gestion-ejemplares.md).
 
 ## Desarrollo y pruebas
 

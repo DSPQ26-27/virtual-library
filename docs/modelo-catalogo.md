@@ -82,4 +82,6 @@ no tienen borrado en cascada; retirar un ejemplar conserva su historial.
 
 El listado y las vistas del catálogo excluyen de disponibilidad los ejemplares
 con préstamos activos, incluso si su estado almacenado indica DISPONIBLE.
-Contrato, reglas y validación en [gestion-ejemplares-us06.md](gestion-ejemplares-us06.md).
+Contrato y reglas en [gestion-ejemplares.md](gestion-ejemplares.md).
+Validación completa con PostgreSQL en
+[validacion-gestion-ejemplares.md](validacion-gestion-ejemplares.md).
