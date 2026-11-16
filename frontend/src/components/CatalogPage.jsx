@@ -269,6 +269,10 @@ export default function CatalogPage() {
                     : "Sin ejemplares disponibles"}
                 </p>
 
+                <Link className="catalogo__actualizar catalogo__enlace" to={`/libros/${book.id}/ejemplares`}>
+                  Ejemplares
+                </Link>
+
                 {staff && (
                   <div className="catalogo__gestion">
                     {confirmando === book.id ? (

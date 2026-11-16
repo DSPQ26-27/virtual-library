@@ -1,0 +1,58 @@
+.ejemplares__lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 1rem;
+  margin: 1.25rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ejemplares__lista p {
+  margin: 0.5rem 0;
+}
+
+.ejemplares__retirado {
+  color: #92400e;
+  font-weight: 600;
+}
+
+.ejemplares__formulario {
+  max-width: 560px;
+}
+
+.ejemplares__formulario h3 {
+  margin-top: 0;
+}
+
+.ejemplares__formulario select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.75rem;
+  border: 1px solid #6b7280;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #172033;
+  font: inherit;
+}
+
+.ejemplares__formulario :is(input, select)[aria-invalid="true"] {
+  border-color: #b91c1c;
+}
+
+.ejemplares__formulario .catalogo__error {
+  margin: 0;
+}
+
+.ejemplares__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.ejemplares__volver {
+  margin-top: 1.5rem;
+}
+
+.ejemplares__volver a {
+  color: #1d4ed8;
+}

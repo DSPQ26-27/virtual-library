@@ -3,6 +3,7 @@ import { Link, Navigate, Route, Routes } from "react-router";
 import { useAuth } from "./auth/AuthContext.js";
 import LoginForm from "./components/LoginForm.jsx";
 import CatalogPage from "./components/CatalogPage.jsx";
+import EjemplaresPage from "./components/EjemplaresPage.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import RegisterForm from "./components/RegisterForm.jsx";
 import BookForm from "./components/BookForm.jsx";
@@ -102,6 +103,15 @@ function App() {
           element={
             <ProtectedRoute>
               <CatalogPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/libros/:id/ejemplares"
+          element={
+            <ProtectedRoute>
+              <EjemplaresPage />
             </ProtectedRoute>
           }
         />

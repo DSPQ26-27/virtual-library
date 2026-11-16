@@ -50,6 +50,16 @@ public class Ejemplar {
     public EstadoEjemplar getEstado() { return estado; }
     public boolean isActivo() { return activo; }
 
+    public void actualizarDatos(String codigo, EstadoEjemplar estado) {
+        this.codigo = codigo;
+        this.estado = estado;
+    }
+
+    /** Retirada lógica: conserva el ejemplar y su futuro historial de préstamos. */
+    public void retirar() {
+        this.activo = false;
+    }
+
     /** Se puede prestar si está activo (no dado de baja) y no está prestado. */
     public boolean isPrestable() {
         return activo && estado == EstadoEjemplar.DISPONIBLE;
