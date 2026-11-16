@@ -5,6 +5,9 @@ import LoginForm from "./components/LoginForm.jsx";
 import CatalogPage from "./components/CatalogPage.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import RegisterForm from "./components/RegisterForm.jsx";
+import BookForm from "./components/BookForm.jsx";
+import StaffRoute from "./components/StaffRoute.jsx";
+import { canManageCatalog } from "./auth/roles.js";
 import "./App.css";
 
 function App() {
@@ -40,6 +43,7 @@ function App() {
         {authenticated ? (
           <>
             <Link to="/catalogo">Catálogo</Link>
+            {canManageCatalog(user) && <Link to="/admin/libros/nuevo">Añadir libro</Link>}
             <span>{user.nombre}</span>
             <button
               type="button"
@@ -99,6 +103,24 @@ function App() {
             <ProtectedRoute>
               <CatalogPage />
             </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/libros/nuevo"
+          element={
+            <StaffRoute>
+              <BookForm />
+            </StaffRoute>
+          }
+        />
+
+        <Route
+          path="/admin/libros/:id/editar"
+          element={
+            <StaffRoute>
+              <BookForm />
+            </StaffRoute>
           }
         />
 

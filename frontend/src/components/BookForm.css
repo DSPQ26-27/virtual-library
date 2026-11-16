@@ -1,0 +1,49 @@
+/* Formulario de libro (#52): reutiliza las clases de RegisterForm.css y añade solo lo necesario. */
+
+.libro-form {
+  max-width: 640px;
+}
+
+.registro__campo textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 8rem;
+  padding: 0.75rem;
+  border: 1px solid #6b7280;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #172033;
+  font: inherit;
+  resize: vertical;
+}
+
+.registro__campo textarea:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+
+.registro__campo :is(input, textarea)[aria-invalid="true"] {
+  border-color: #b91c1c;
+}
+
+.registro__campo small {
+  color: #4b5563;
+}
+
+.libro-form__error-campo {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+.libro-form__aviso {
+  margin: 0 0 1rem;
+}
+
+.libro-form__volver {
+  margin: 1rem 0 0;
+}
+
+.libro-form__volver a {
+  color: #1d4ed8;
+}
