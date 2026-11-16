@@ -297,3 +297,40 @@
     grid-row: 1;
   }
 }
+
+/* Gestión del catálogo (#52): solo visible para bibliotecarios y administradores */
+
+.catalogo__enlace {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  text-decoration: none;
+}
+
+.catalogo__enlace:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+
+.catalogo__gestion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.catalogo__retirar {
+  border-color: #b91c1c;
+  color: #b91c1c;
+}
+
+.catalogo__confirmacion {
+  flex-basis: 100%;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.catalogo__exito {
+  color: #166534;
+  line-height: 1.5;
+}

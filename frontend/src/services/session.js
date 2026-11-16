@@ -51,7 +51,7 @@ function isUser(body) {
   );
 }
 
-async function csrfToken() {
+export async function csrfToken() {
   const { status, body } = await request("csrf");
 
   if (

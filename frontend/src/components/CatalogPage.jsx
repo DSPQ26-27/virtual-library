@@ -1,10 +1,17 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 import { useAuth } from "../auth/AuthContext.js";
 import { getBooks, getCategories } from "../services/books.js";
+import { retireBook } from "../services/catalogAdmin.js";
+import { canManageCatalog } from "../auth/roles.js";
 import "./CatalogPage.css";
 
 export default function CatalogPage() {
-  const { expireSession } = useAuth();
+  const { user, expireSession } = useAuth();
+  // Gestión del catálogo (#52): solo bibliotecarios y administradores
+  const staff = canManageCatalog(user);
+  const [confirmando, setConfirmando] = useState(null);
+  const [retirada, setRetirada] = useState({ phase: "idle", message: "" });
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState({ q: "", categoria: "", vista: "TODOS", page: 0, revision: 0 });
   const [state, setState] = useState({ query: null, phase: "loading", data: null, message: "" });
@@ -122,6 +129,22 @@ export default function CatalogPage() {
     setQuery((current) => ({ q: "", categoria: "", vista: "TODOS", page: 0, revision: current.revision + 1 }));
   }
 
+  async function retirar(book) {
+    setRetirada({ phase: "saving", message: "" });
+    try {
+      await retireBook(book.id); // DELETE /api/libros/{id} (retirada lógica)
+      setConfirmando(null);
+      setRetirada({ phase: "done", message: `«${book.titulo}» se ha retirado del catálogo.` });
+      reload(); // el backend ya no devuelve el libro retirado
+    } catch (error) {
+      if (error.status === 401) {
+        expireSession();
+        return;
+      }
+      setRetirada({ phase: "error", message: error.message || "No se ha podido retirar el libro." });
+    }
+  }
+
   function changePage(page) {
     focusAfterPaging.current = true;
     setQuery((current) => ({ ...current, page }));
@@ -131,6 +154,12 @@ export default function CatalogPage() {
     <section className="catalogo" aria-labelledby="catalogo-titulo">
       <header className="catalogo__cabecera">
         <h2 id="catalogo-titulo">Catálogo</h2>
+
+        {staff && (
+          <Link className="catalogo__actualizar catalogo__enlace" to="/admin/libros/nuevo">
+            Añadir libro
+          </Link>
+        )}
 
         <button
           className="catalogo__actualizar"
@@ -201,6 +230,13 @@ export default function CatalogPage() {
         {failed && <p className="catalogo__error">{state.message}</p>}
       </div>
 
+      <div aria-live="polite" aria-atomic="true">
+        {retirada.phase === "done" && <p className="catalogo__exito">{retirada.message}</p>}
+      </div>
+      <div role="alert" aria-atomic="true">
+        {retirada.phase === "error" && <p className="catalogo__error">{retirada.message}</p>}
+      </div>
+
       <div aria-busy={loading}>
       {ready && state.data.content.length === 0 && (
         <p className="catalogo__vacio" role="status">
@@ -232,6 +268,55 @@ export default function CatalogPage() {
                     ? "Disponible"
                     : "Sin ejemplares disponibles"}
                 </p>
+
+                {staff && (
+                  <div className="catalogo__gestion">
+                    {confirmando === book.id ? (
+                      <>
+                        <p className="catalogo__confirmacion" role="alert">
+                          ¿Retirar «{book.titulo}» del catálogo? No se borrará ni se perderán sus ejemplares.
+                        </p>
+                        <button
+                          type="button"
+                          className="catalogo__actualizar catalogo__retirar"
+                          disabled={retirada.phase === "saving"}
+                          onClick={() => retirar(book)}
+                        >
+                          {retirada.phase === "saving" ? "Retirando…" : "Sí, retirar"}
+                        </button>
+                        <button
+                          type="button"
+                          className="catalogo__actualizar"
+                          disabled={retirada.phase === "saving"}
+                          onClick={() => setConfirmando(null)}
+                        >
+                          Cancelar
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          className="catalogo__actualizar catalogo__enlace"
+                          to={`/admin/libros/${book.id}/editar`}
+                          aria-label={`Editar «${book.titulo}»`}
+                        >
+                          Editar
+                        </Link>
+                        <button
+                          type="button"
+                          className="catalogo__actualizar catalogo__retirar"
+                          aria-label={`Retirar «${book.titulo}»`}
+                          onClick={() => {
+                            setConfirmando(book.id);
+                            setRetirada({ phase: "idle", message: "" });
+                          }}
+                        >
+                          Retirar
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </article>
             </li>
           ))}
