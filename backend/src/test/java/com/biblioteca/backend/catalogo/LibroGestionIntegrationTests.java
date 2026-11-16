@@ -322,4 +322,60 @@ class LibroGestionIntegrationTests {
         assertNotNull(primera);
         assertEquals(primera, segunda);
     }
+
+    // ---------- Validación #53: administrador y libros de Open Library ----------
+
+    /** Inserta un libro como los del script de importación de Open Library. */
+    private long libroOpenLibrary() {
+        jdbc.update("""
+            INSERT INTO libros (isbn, titulo, autor, categoria, origen, openlibrary_key, openlibrary_work_key)
+            VALUES ('978-1-4028-9462-6', 'Zzopenlibrary Original', 'Autor OL', 'Fiction',
+                    'OPEN_LIBRARY', '/books/OL1M', '/works/OL1W')
+            """);
+        return jdbc.queryForObject(
+            "SELECT id FROM libros WHERE openlibrary_key = '/books/OL1M'", Long.class);
+    }
+
+    @Test
+    void unAdministradorPuedeEditarYRetirar() throws Exception {
+        long id = crearYObtenerId(datos(null, "Zzgestion Para Admin", "Autor"));
+
+        editar("ADMIN", id, datos(null, "Zzgestion Editado Por Admin", "Autor"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.titulo").value("Zzgestion Editado Por Admin"));
+        retirar("ADMIN", id).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void editarUnLibroDeOpenLibraryConservaSuOrigenYSusClaves() throws Exception {
+        long id = libroOpenLibrary();
+
+        editar("LIBRARIAN", id, datos("978-1-4028-9462-6", "Zzopenlibrary Editado", "Autor OL"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.titulo").value("Zzopenlibrary Editado"))
+            .andExpect(jsonPath("$.origen").value("OPEN_LIBRARY"));
+        libros.flush();
+
+        Map<String, Object> fila = jdbc.queryForMap(
+            "SELECT titulo, origen, openlibrary_key, openlibrary_work_key FROM libros WHERE id = ?", id);
+        assertEquals("Zzopenlibrary Editado", fila.get("titulo"));
+        assertEquals("OPEN_LIBRARY", fila.get("origen"));
+        assertEquals("/books/OL1M", fila.get("openlibrary_key"));
+        assertEquals("/works/OL1W", fila.get("openlibrary_work_key"));
+    }
+
+    @Test
+    void retirarUnLibroDeOpenLibraryEsLogicoYConservaSusDatos() throws Exception {
+        long id = libroOpenLibrary();
+
+        retirar("LIBRARIAN", id).andExpect(status().isNoContent());
+        libros.flush();
+
+        Map<String, Object> fila = jdbc.queryForMap(
+            "SELECT retirado, origen, openlibrary_key FROM libros WHERE id = ?", id);
+        assertEquals(true, fila.get("retirado"));
+        assertEquals("OPEN_LIBRARY", fila.get("origen"));
+        assertEquals("/books/OL1M", fila.get("openlibrary_key"));
+        buscar("?q=zzopenlibrary").andExpect(jsonPath("$.totalElements").value(0));
+    }
 }
