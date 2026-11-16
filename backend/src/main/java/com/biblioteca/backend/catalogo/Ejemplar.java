@@ -14,7 +14,7 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/** Copia individual de un libro; es lo que se prestará en el Sprint 3. */
+/** Copia individual de un libro, asociada a su historial de préstamos. */
 @Entity
 @Table(name = "ejemplares")
 public class Ejemplar {
@@ -55,7 +55,7 @@ public class Ejemplar {
         this.estado = estado;
     }
 
-    /** Retirada lógica: conserva el ejemplar y su futuro historial de préstamos. */
+    /** Retirada lógica: conserva el ejemplar y su historial de préstamos. */
     public void retirar() {
         this.activo = false;
     }

@@ -1,6 +1,8 @@
 package com.biblioteca.backend.catalogo;
 
+import com.biblioteca.backend.prestamo.PrestamoRepository;
 import java.util.List;
+import java.util.Set;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,18 +12,28 @@ public class EjemplarGestionService {
 
     private final LibroRepository libros;
     private final EjemplarRepository ejemplares;
+    private final PrestamoRepository prestamos;
 
-    public EjemplarGestionService(LibroRepository libros, EjemplarRepository ejemplares) {
+    public EjemplarGestionService(LibroRepository libros, EjemplarRepository ejemplares,
+            PrestamoRepository prestamos) {
         this.libros = libros;
         this.ejemplares = ejemplares;
+        this.prestamos = prestamos;
     }
 
     @Transactional(readOnly = true)
     public EjemplaresResponse listar(Long libroId) {
         if (!libros.existsById(libroId)) throw new LibroNoEncontradoException();
         List<Ejemplar> lista = ejemplares.findByLibroIdOrderByIdAsc(libroId);
-        return new EjemplaresResponse(lista.stream().map(EjemplarResponse::from).toList(),
-            lista.size(), lista.stream().filter(Ejemplar::isPrestable).count());
+        List<Long> ids = lista.stream().map(Ejemplar::getId).toList();
+        Set<Long> prestados = ids.isEmpty() ? Set.of() : prestamos.findEjemplarIdsConPrestamoActivo(ids);
+        List<EjemplarResponse> respuesta = lista.stream()
+            .map(e -> prestados.contains(e.getId())
+                ? new EjemplarResponse(e.getId(), e.getCodigo(), EstadoEjemplar.PRESTADO, e.isActivo())
+                : EjemplarResponse.from(e))
+            .toList();
+        return new EjemplaresResponse(respuesta, lista.size(),
+            lista.stream().filter(Ejemplar::isPrestable).filter(e -> !prestados.contains(e.getId())).count());
     }
 
     @Transactional
@@ -37,6 +49,11 @@ public class EjemplarGestionService {
     public EjemplarResponse editar(Long libroId, Long ejemplarId, EjemplarRequest datos) {
         Ejemplar ejemplar = buscar(libroId, ejemplarId);
         if (!ejemplar.isActivo()) throw new EjemplarRetiradoException();
+        if (datos.estado() != EstadoEjemplar.PRESTADO
+                && prestamos.existsByEjemplarIdAndFechaDevolucionIsNull(ejemplarId)) {
+            throw new EjemplarConPrestamoActivoException(
+                "No se puede cambiar el estado de un ejemplar con un préstamo activo.");
+        }
         comprobarCodigoLibre(datos.codigo(), ejemplarId);
         ejemplar.actualizarDatos(datos.codigo(), datos.estado());
         return guardar(ejemplar);
@@ -44,7 +61,14 @@ public class EjemplarGestionService {
 
     @Transactional
     public void retirar(Long libroId, Long ejemplarId) {
-        buscar(libroId, ejemplarId).retirar();
+        Ejemplar ejemplar = buscar(libroId, ejemplarId);
+        if (!ejemplar.isActivo()) return;
+        if (ejemplar.getEstado() == EstadoEjemplar.PRESTADO
+                || prestamos.existsByEjemplarIdAndFechaDevolucionIsNull(ejemplarId)) {
+            throw new EjemplarConPrestamoActivoException(
+                "No se puede retirar un ejemplar con un préstamo activo.");
+        }
+        ejemplar.retirar();
     }
 
     private Ejemplar buscar(Long libroId, Long ejemplarId) {

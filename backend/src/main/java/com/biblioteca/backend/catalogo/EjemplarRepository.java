@@ -20,12 +20,16 @@ public interface EjemplarRepository extends JpaRepository<Ejemplar, Long> {
 
     Optional<Ejemplar> findByCodigo(String codigo);
 
-    /** De los libros indicados, devuelve los ids de los que tienen algún ejemplar activo y DISPONIBLE. */
+    /** Ejemplares activos, DISPONIBLE y sin préstamo pendiente de devolución. */
     @Query("""
         SELECT DISTINCT e.libro.id FROM Ejemplar e
         WHERE e.libro.id IN :libroIds
           AND e.activo = true
           AND e.estado = com.biblioteca.backend.catalogo.EstadoEjemplar.DISPONIBLE
+          AND NOT EXISTS (
+              SELECT p.id FROM Prestamo p
+              WHERE p.ejemplar = e AND p.fechaDevolucion IS NULL
+          )
         """)
     Set<Long> findLibrosConEjemplarPrestable(@Param("libroIds") Collection<Long> libroIds);
 }

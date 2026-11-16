@@ -105,6 +105,42 @@ test("un código duplicado muestra el mensaje de conflicto y el error de campo",
   });
 });
 
+test("retirar un ejemplar con préstamo activo rechaza 409 y conserva el motivo", async (t) => {
+  const message = "No se puede retirar un ejemplar con un préstamo activo.";
+  const calls = mockApi(t, async (url, options) => {
+    assert.equal(url, "/api/libros/5/ejemplares/7");
+    assert.equal(options.method, "DELETE");
+    return Response.json({ message, errors: {} }, { status: 409 });
+  });
+
+  await assert.rejects(retireEjemplar(5, 7), (error) => {
+    assert.ok(error instanceof EjemplaresError);
+    assert.equal(error.status, 409);
+    assert.equal(error.message, message);
+    assert.deepEqual(error.fieldErrors, {});
+    return true;
+  });
+  assert.equal(calls.filter((call) => call.options.method === "DELETE").length, 1);
+});
+
+test("editar el estado con préstamo activo conserva el conflicto del backend", async (t) => {
+  const message = "No se puede cambiar el estado de un ejemplar con un préstamo activo.";
+  mockApi(t, async () => Response.json({ message, errors: {} }, { status: 409 }));
+
+  await assert.rejects(updateEjemplar(5, 7, datos), (error) => {
+    assert.equal(error.status, 409);
+    assert.equal(error.message, message);
+    assert.deepEqual(error.fieldErrors, {});
+    return true;
+  });
+});
+
+test("retirar un ejemplar inexistente rechaza 404 conservando el mensaje", async (t) => {
+  const message = "El ejemplar no existe.";
+  mockApi(t, async () => Response.json({ message, errors: {} }, { status: 404 }));
+  await assert.rejects(retireEjemplar(5, 7), { name: "EjemplaresError", status: 404, message });
+});
+
 for (const status of [400, 401, 403, 404, 409, 500]) {
   test(`conserva el estado HTTP ${status} aunque no reciba JSON`, async (t) => {
     mockApi(t, async () => new Response("Error", { status }));
