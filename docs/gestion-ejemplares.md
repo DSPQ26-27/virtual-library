@@ -172,7 +172,14 @@ import validateEjemplares from './tests/ejemplares.browser.mjs';
 console.log(await validateEjemplares(page, 'http://127.0.0.1:5175'));
 ```
 
-La revisión incluyó esquema, relaciones, historial, transacciones, permisos y
-coherencia frontend/backend. En esta revisión las pruebas del backend se han
-ejecutado con H2 aislada y las de navegador con respuestas simuladas; no se ha
-modificado PostgreSQL, los CSV ni `.env`.
+La revisión inicial incluyó esquema, relaciones, historial, transacciones,
+permisos y coherencia frontend/backend, con H2 y respuestas simuladas.
+
+Posteriormente se completó el recorrido real React–Spring Boot–PostgreSQL:
+11 grupos de comprobaciones correctos sobre PostgreSQL 17.11, con los tres roles,
+contadores, estados, restricciones y conservación del historial. Se utilizó una
+base temporal independiente, eliminada al terminar; se conservaron los datos de
+`biblioteca_db`, los CSV y `.env`.
+
+Matriz de criterios y evidencia en
+[validacion-gestion-ejemplares.md](validacion-gestion-ejemplares.md).
