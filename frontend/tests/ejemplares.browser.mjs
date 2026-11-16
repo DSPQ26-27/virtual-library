@@ -6,6 +6,9 @@ export default async function validateEjemplares(page, baseUrl = "http://127.0.0
   const path = "/libros/7/ejemplares";
   const api = "/api/libros/7/ejemplares";
   const book = { id: 7, titulo: "Libro de prueba", autor: "Autora", retirado: false };
+  const activeLoans = new Set([2]);
+  const loanRetirementMessage = "No se puede retirar un ejemplar con un préstamo activo.";
+  const loanStateMessage = "No se puede cambiar el estado de un ejemplar con un préstamo activo.";
   let role = "LIBRARIAN";
   let items = [];
   let readStatus = 500;
@@ -52,7 +55,9 @@ export default async function validateEjemplares(page, baseUrl = "http://127.0.0
     if (url.pathname === api || url.pathname.startsWith(`${api}/`)) {
       if (request.headers()["x-csrf-token"] !== "token-prueba") protocolErrors.push("Mutación sin token CSRF");
       if (writeGate) await writeGate;
-      if (writeStatus !== 200) return route.fulfill({ status: writeStatus, json: { message: "Operación rechazada." } });
+      if (writeStatus !== 200) return route.fulfill({ status: writeStatus, json: {
+        message: writeStatus === 404 ? "El ejemplar no existe." : "Operación rechazada.", errors: {},
+      } });
       if (method === "POST") {
         const data = request.postDataJSON();
         if (data.codigo === "DUPLICADO") return route.fulfill({ status: 409, json: {
@@ -64,12 +69,19 @@ export default async function validateEjemplares(page, baseUrl = "http://127.0.0
         return route.fulfill({ status: 201, json: created });
       }
       const id = Number(url.pathname.split("/").at(-1));
+      const current = items.find((item) => item.id === id);
       if (method === "PUT") {
         const data = request.postDataJSON();
+        if (activeLoans.has(id) && data.estado !== current.estado) {
+          return route.fulfill({ status: 409, json: { message: loanStateMessage, errors: {} } });
+        }
         items = items.map((item) => item.id === id ? { ...item, ...data } : item);
         return route.fulfill({ json: items.find((item) => item.id === id) });
       }
       if (method === "DELETE") {
+        if (current.estado === "PRESTADO" || activeLoans.has(id)) {
+          return route.fulfill({ status: 409, json: { message: loanRetirementMessage, errors: {} } });
+        }
         items = items.map((item) => item.id === id ? { ...item, activo: false } : item);
         return route.fulfill({ status: 204 });
       }
@@ -111,6 +123,43 @@ export default async function validateEjemplares(page, baseUrl = "http://127.0.0
     await card("EJ-RETIRADO").getByText("Retirado", { exact: true }).waitFor();
     assert(await card("EJ-RETIRADO").getByRole("button").count() === 0, "Retirados sin acciones de edición o retirada");
     checks.push("Lista con identificadores, estados y retirados fuera de disponibilidad");
+
+    writeStatus = 404;
+    await codigo.fill("BORRADOR-404");
+    await card("EJ-A").getByRole("button", { name: "Retirar ejemplar EJ-A", exact: true }).click();
+    await card("EJ-A").getByRole("button", { name: "Sí, retirar", exact: true }).click();
+    await page.getByText("El ejemplar no existe.", { exact: true }).waitFor();
+    await waitCounts(3, 1);
+    assert(await codigo.inputValue() === "BORRADOR-404", "404 no debe borrar el formulario pendiente");
+    assert(await card("EJ-A").getByText("Retirado", { exact: true }).count() === 0, "404 no debe marcar el registro como retirado");
+    assert(await page.locator(".ejemplares .catalogo__exito").count() === 0, "404 de retirada no debe mostrar éxito");
+    await card("EJ-A").getByRole("button", { name: "Cancelar", exact: true }).click();
+    writeStatus = 200;
+    checks.push("404 de retirada conserva lista, contadores y formulario sin mostrar éxito");
+
+    const beforeRejectedDelete = count("DELETE");
+    await card("EJ-B").getByRole("button", { name: "Retirar ejemplar EJ-B", exact: true }).click();
+    await card("EJ-B").getByRole("button", { name: "Sí, retirar", exact: true }).click();
+    await page.getByText(loanRetirementMessage, { exact: true }).waitFor();
+    await waitCounts(3, 1);
+    assert(count("DELETE") === beforeRejectedDelete + 1, "Retirada prestada debe recibir el conflicto del backend");
+    assert(items.find((item) => item.id === 2).activo, "Conflicto de préstamo no puede retirar el ejemplar");
+    assert(await card("EJ-B").getByText("Retirado", { exact: true }).count() === 0, "Retirada rechazada conserva el ejemplar activo en pantalla");
+    assert(await page.locator(".ejemplares .catalogo__exito").count() === 0, "Retirada rechazada no debe mostrar éxito");
+    await card("EJ-B").getByRole("button", { name: "Cancelar", exact: true }).click();
+    checks.push("409 al retirar un ejemplar prestado conserva su registro activo y los contadores, sin éxito");
+
+    await card("EJ-B").getByRole("button", { name: "Editar ejemplar EJ-B", exact: true }).click();
+    await estado.selectOption("DISPONIBLE");
+    await page.getByRole("button", { name: "Guardar cambios", exact: true }).click();
+    await page.getByText(loanStateMessage, { exact: true }).waitFor();
+    assert(await estado.inputValue() === "DISPONIBLE" && await codigo.inputValue() === "EJ-B", "409 de estado conserva los datos pendientes del formulario");
+    await card("EJ-B").getByText("Prestado", { exact: false }).waitFor();
+    await waitCounts(3, 1);
+    assert(items.find((item) => item.id === 2).estado === "PRESTADO", "Préstamo activo impide modificar el estado guardado");
+    assert(await page.locator(".ejemplares .catalogo__exito").count() === 0, "Edición rechazada no debe mostrar éxito");
+    await page.getByRole("button", { name: "Cancelar edición", exact: true }).click();
+    checks.push("409 al cambiar un estado con préstamo activo conserva lista, formulario y contadores");
 
     await codigo.fill("DUPLICADO");
     await register().click();

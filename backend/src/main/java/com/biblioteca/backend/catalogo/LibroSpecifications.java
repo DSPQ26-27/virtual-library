@@ -1,5 +1,6 @@
 package com.biblioteca.backend.catalogo;
 
+import com.biblioteca.backend.prestamo.Prestamo;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
@@ -44,6 +45,12 @@ public final class LibroSpecifications {
                 deEsteLibro.add(cb.isTrue(ejemplar.get("activo")));
                 if (vista == VistaCatalogo.DISPONIBLES) {
                     deEsteLibro.add(cb.equal(ejemplar.get("estado"), EstadoEjemplar.DISPONIBLE));
+                    Subquery<Long> prestamosActivos = sub.subquery(Long.class);
+                    Root<Prestamo> prestamo = prestamosActivos.from(Prestamo.class);
+                    prestamosActivos.select(prestamo.get("id")).where(
+                        cb.equal(prestamo.get("ejemplar"), ejemplar),
+                        cb.isNull(prestamo.get("fechaDevolucion")));
+                    deEsteLibro.add(cb.not(cb.exists(prestamosActivos)));
                 }
                 sub.select(ejemplar.get("id")).where(deEsteLibro.toArray(new Predicate[0]));
                 condiciones.add(cb.exists(sub));

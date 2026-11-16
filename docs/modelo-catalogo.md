@@ -13,7 +13,10 @@ categoria, anio_publicacion.
 - estado: DISPONIBLE o PRESTADO (restricción CHECK en la base de datos).
 - activo = false marca un ejemplar dado de baja sin borrarlo, para
   conservar el historial de préstamos.
+- La retirada rechaza ejemplares `PRESTADO` o con préstamos sin devolución
+  (tabla `prestamos`, migración V8). Se conservan los préstamos devueltos.
 - Un ejemplar es prestable si está activo y DISPONIBLE.
+  La disponibilidad de la API exige además que no tenga préstamos activos.
   Un libro estará "disponible" en el catálogo si tiene al menos un ejemplar prestable.
 
 ## Clases Java (paquete catalogo)
@@ -70,3 +73,13 @@ La entidad Libro expone dos métodos de gestión:
 
 Retirar no borra el libro ni sus ejemplares. La búsqueda (LibroSpecifications)
 y las categorías excluyen los libros retirados. Ver contrato-gestion-catalogo.md.
+
+## Gestión de ejemplares y préstamos (US06)
+
+La migración V8 añade `prestamos`: id, ejemplar_id, usuario_id, fecha_prestamo y
+fecha_devolucion. Una devolución nula indica un préstamo activo. Las relaciones
+no tienen borrado en cascada; retirar un ejemplar conserva su historial.
+
+El listado y las vistas del catálogo excluyen de disponibilidad los ejemplares
+con préstamos activos, incluso si su estado almacenado indica DISPONIBLE.
+Contrato, reglas y validación en [gestion-ejemplares-us06.md](gestion-ejemplares-us06.md).

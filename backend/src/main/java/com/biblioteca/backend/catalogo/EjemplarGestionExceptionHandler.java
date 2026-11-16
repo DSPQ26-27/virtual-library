@@ -46,8 +46,8 @@ public class EjemplarGestionExceptionHandler {
                 Map.of("codigo", "Este código ya está registrado en otro ejemplar.")));
     }
 
-    @ExceptionHandler(EjemplarRetiradoException.class)
-    public ResponseEntity<ErrorResponse> retirado(EjemplarRetiradoException ex) {
+    @ExceptionHandler({EjemplarRetiradoException.class, EjemplarConPrestamoActivoException.class})
+    public ResponseEntity<ErrorResponse> conflicto(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(new ErrorResponse(ex.getMessage(), Map.of()));
     }

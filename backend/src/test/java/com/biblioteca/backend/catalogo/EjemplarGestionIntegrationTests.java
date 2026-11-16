@@ -1,6 +1,11 @@
 package com.biblioteca.backend.catalogo;
 
 import com.biblioteca.backend.BackendApplication;
+import com.biblioteca.backend.prestamo.Prestamo;
+import com.biblioteca.backend.prestamo.PrestamoRepository;
+import com.biblioteca.backend.usuario.Usuario;
+import com.biblioteca.backend.usuario.UsuarioRepository;
+import jakarta.persistence.EntityManager;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -42,6 +47,9 @@ class EjemplarGestionIntegrationTests {
     @Autowired private LibroRepository libros;
     @Autowired private EjemplarRepository ejemplares;
     @Autowired private EjemplarGestionService gestion;
+    @Autowired private PrestamoRepository prestamos;
+    @Autowired private UsuarioRepository usuarios;
+    @Autowired private EntityManager entityManager;
     @Autowired private PlatformTransactionManager transactionManager;
     @Autowired private ObjectMapper json;
 
@@ -92,6 +100,15 @@ class EjemplarGestionIntegrationTests {
         MvcResult resultado = crear("LIBRARIAN", libroId, datos(codigo, estado))
             .andExpect(status().isCreated()).andReturn();
         return json.readTree(resultado.getResponse().getContentAsString()).get("id").asLong();
+    }
+
+    private Prestamo crearPrestamo(long ejemplarId) {
+        Usuario usuario = new Usuario();
+        usuario.setNombre("Lector de prueba US06");
+        usuario.setEmail("us06-" + ejemplarId + "@example.com");
+        usuario.setPasswordHash("hash-de-prueba");
+        usuarios.saveAndFlush(usuario);
+        return prestamos.saveAndFlush(new Prestamo(ejemplares.findById(ejemplarId).orElseThrow(), usuario));
     }
 
     private ResultActions catalogo(String vista) throws Exception {
@@ -295,19 +312,122 @@ class EjemplarGestionIntegrationTests {
         assertEquals(EstadoEjemplar.DISPONIBLE, retirado.getEstado());
     }
 
-    @Test
-    void retirarUnEjemplarPrestadoEsLogicoEIdempotente() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"LIBRARIAN", "ADMIN"})
+    void noSePuedeRetirarUnEjemplarMarcadoComoPrestado(String rol) throws Exception {
         long libroId = libroDelEjemplar("EJ-0002");
         long id = idEjemplar("EJ-0002");
         long total = ejemplares.count();
-        retirar("LIBRARIAN", libroId, id).andExpect(status().isNoContent());
-        retirar("ADMIN", libroId, id).andExpect(status().isNoContent());
+        retirar(rol, libroId, id).andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message").value("No se puede retirar un ejemplar con un préstamo activo."));
         ejemplares.flush();
         assertEquals(total, ejemplares.count());
-        Ejemplar retirado = ejemplares.findById(id).orElseThrow();
-        assertFalse(retirado.isActivo());
-        assertEquals(EstadoEjemplar.PRESTADO, retirado.getEstado());
+        Ejemplar conservado = ejemplares.findById(id).orElseThrow();
+        assertTrue(conservado.isActivo());
+        assertEquals(EstadoEjemplar.PRESTADO, conservado.getEstado());
         listar(libroId).andExpect(jsonPath("$.total").value(2)).andExpect(jsonPath("$.disponibles").value(1));
+    }
+
+    @Test
+    void retirarSigueSiendoIdempotenteInclusoParaUnRetiradoPrestadoAnterior() throws Exception {
+        long libroId = libroDelEjemplar("EJ-0002");
+        long id = idEjemplar("EJ-0002");
+        Ejemplar anterior = ejemplares.findById(id).orElseThrow();
+        anterior.retirar(); // Representa una retirada anterior a la protección de préstamos.
+        ejemplares.saveAndFlush(anterior);
+        retirar("LIBRARIAN", libroId, id).andExpect(status().isNoContent());
+        retirar("ADMIN", libroId, id).andExpect(status().isNoContent());
+        assertFalse(ejemplares.findById(id).orElseThrow().isActivo());
+        assertEquals(EstadoEjemplar.PRESTADO, ejemplares.findById(id).orElseThrow().getEstado());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"LIBRARIAN", "ADMIN"})
+    void unPrestamoRealActivoImpideRetirarAunqueElEstadoEsteDesincronizado(String rol) throws Exception {
+        long libroId = nuevoLibro();
+        long id = crearEjemplar(libroId, "EJ-PRESTAMO-ACTIVO", "DISPONIBLE");
+        Prestamo prestamo = crearPrestamo(id);
+        retirar(rol, libroId, id).andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message").value("No se puede retirar un ejemplar con un préstamo activo."));
+        ejemplares.flush();
+        entityManager.clear();
+        assertTrue(ejemplares.findById(id).orElseThrow().isActivo());
+        assertEquals(EstadoEjemplar.DISPONIBLE, ejemplares.findById(id).orElseThrow().getEstado());
+        assertNull(prestamos.findById(prestamo.getId()).orElseThrow().getFechaDevolucion());
+        listar(libroId).andExpect(jsonPath("$.total").value(1))
+            .andExpect(jsonPath("$.disponibles").value(0))
+            .andExpect(jsonPath("$.ejemplares[0].estado").value("PRESTADO"));
+    }
+
+    @Test
+    void devolverPermiteRetirarSinBorrarElHistorialNiCambiarSusDatos() throws Exception {
+        long libroId = nuevoLibro();
+        long id = crearEjemplar(libroId, "EJ-CON-HISTORIAL", "PRESTADO");
+        Prestamo prestamo = crearPrestamo(id);
+        long prestamoId = prestamo.getId();
+        long usuarioId = prestamo.getUsuario().getId();
+        prestamo.devolver();
+        prestamos.saveAndFlush(prestamo);
+        entityManager.clear();
+        Prestamo devuelto = prestamos.findById(prestamoId).orElseThrow();
+        var fechaPrestamo = devuelto.getFechaPrestamo();
+        var fechaDevolucion = devuelto.getFechaDevolucion();
+        long totalHistorial = prestamos.count();
+
+        editar("LIBRARIAN", libroId, id, datos("EJ-CON-HISTORIAL", "DISPONIBLE"))
+            .andExpect(status().isOk());
+        retirar("ADMIN", libroId, id).andExpect(status().isNoContent());
+        retirar("LIBRARIAN", libroId, id).andExpect(status().isNoContent());
+        ejemplares.flush();
+        entityManager.clear();
+
+        assertFalse(ejemplares.findById(id).orElseThrow().isActivo());
+        assertEquals(totalHistorial, prestamos.count());
+        Prestamo conservado = prestamos.findById(prestamoId).orElseThrow();
+        assertEquals(id, conservado.getEjemplar().getId());
+        assertEquals(usuarioId, conservado.getUsuario().getId());
+        assertEquals(fechaPrestamo, conservado.getFechaPrestamo());
+        assertEquals(fechaDevolucion, conservado.getFechaDevolucion());
+        assertNotNull(conservado.getFechaDevolucion());
+        assertTrue(usuarios.existsById(usuarioId));
+    }
+
+    @Test
+    void editarNoPuedeFingirUnaDevolucionPeroSiCambiarElCodigo() throws Exception {
+        long libroId = nuevoLibro();
+        long id = crearEjemplar(libroId, "EJ-PRESTADO-EDITABLE", "PRESTADO");
+        Prestamo prestamo = crearPrestamo(id);
+        editar("LIBRARIAN", libroId, id, datos("EJ-DEVOLUCION-FALSA", "DISPONIBLE"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message").value("No se puede cambiar el estado de un ejemplar con un préstamo activo."));
+        assertEquals("EJ-PRESTADO-EDITABLE", ejemplares.findById(id).orElseThrow().getCodigo());
+        assertEquals(EstadoEjemplar.PRESTADO, ejemplares.findById(id).orElseThrow().getEstado());
+        assertNull(prestamos.findById(prestamo.getId()).orElseThrow().getFechaDevolucion());
+        editar("ADMIN", libroId, id, datos("EJ-CODIGO-CORREGIDO", "PRESTADO"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.codigo").value("EJ-CODIGO-CORREGIDO"));
+        assertTrue(prestamos.existsByEjemplarIdAndFechaDevolucionIsNull(id));
+    }
+
+    @Test
+    void disponibilidadYVistasConsultanPrestamosRealesYSeRecuperanTrasLaDevolucion() throws Exception {
+        long libroId = nuevoLibro();
+        long id = crearEjemplar(libroId, "EJ-DISPONIBILIDAD-REAL", "DISPONIBLE");
+        Prestamo prestamo = crearPrestamo(id);
+        listar(libroId).andExpect(jsonPath("$.disponibles").value(0))
+            .andExpect(jsonPath("$.ejemplares[0].estado").value("PRESTADO"));
+        catalogo("TODOS").andExpect(jsonPath("$.totalElements").value(1))
+            .andExpect(jsonPath("$.content[0].disponible").value(false));
+        catalogo("DISPONIBLES").andExpect(jsonPath("$.totalElements").value(0));
+        catalogo("BIBLIOTECA").andExpect(jsonPath("$.totalElements").value(1));
+
+        prestamo.devolver();
+        prestamos.saveAndFlush(prestamo);
+        editar("LIBRARIAN", libroId, id, datos("EJ-DISPONIBILIDAD-REAL", "DISPONIBLE"))
+            .andExpect(status().isOk());
+        listar(libroId).andExpect(jsonPath("$.disponibles").value(1))
+            .andExpect(jsonPath("$.ejemplares[0].estado").value("DISPONIBLE"));
+        catalogo("TODOS").andExpect(jsonPath("$.content[0].disponible").value(true));
+        catalogo("DISPONIBLES").andExpect(jsonPath("$.totalElements").value(1));
     }
 
     @Test

@@ -68,6 +68,9 @@ ejemplar, el total registrado (incluidos los retirados) y los disponibles.
 
 Los bibliotecarios y administradores pueden registrar y editar con un único
 formulario, y retirar después de confirmar. La retirada conserva el registro.
+La API rechaza retirar ejemplares prestados o con préstamos activos, y marcar
+como disponible un ejemplar con un préstamo activo. La pantalla muestra el
+motivo y conserva los datos. Los préstamos activos no cuentan como disponibles.
 La API exige esos roles y token CSRF para las escrituras. Tras cada cambio se
 actualizan la lista y los contadores.
 
