@@ -1,8 +1,11 @@
 package com.biblioteca.backend.catalogo;
 
+import jakarta.persistence.LockModeType;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -24,4 +27,9 @@ public interface LibroRepository extends JpaRepository<Libro, Long>, JpaSpecific
         WHERE UPPER(REPLACE(REPLACE(l.isbn, '-', ''), ' ', '')) = :isbn
         """)
     List<Long> findIdsByIsbnNormalizado(@Param("isbn") String isbn);
+
+    /** Libro no retirado, bloqueando su fila hasta el final de la transacción (préstamos US07). */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT l FROM Libro l WHERE l.id = :id AND l.retirado = false")
+    Optional<Libro> findParaPrestamo(@Param("id") Long id);
 }

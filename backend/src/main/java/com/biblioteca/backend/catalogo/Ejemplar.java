@@ -64,4 +64,9 @@ public class Ejemplar {
     public boolean isPrestable() {
         return activo && estado == EstadoEjemplar.DISPONIBLE;
     }
+
+    /** Marca el ejemplar como prestado; el servicio ya ha comprobado que es prestable. */
+    public void prestar() {
+        this.estado = EstadoEjemplar.PRESTADO;
+    }
 }

@@ -83,6 +83,10 @@ public class SecurityConfig {
                     "/api/libros/**"
                 ).hasAnyRole("LIBRARIAN", "ADMIN")
 
+                // Pedir préstamos: solo estudiantes (US07)
+                .requestMatchers(HttpMethod.POST, "/api/prestamos")
+                    .hasRole("STUDENT")
+
                 // Resto de endpoints
                 .anyRequest()
                     .hasAnyRole("STUDENT", "LIBRARIAN", "ADMIN")
