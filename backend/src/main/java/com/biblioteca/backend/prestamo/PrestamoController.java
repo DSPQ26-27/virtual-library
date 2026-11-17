@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,6 +28,19 @@ public class PrestamoController {
 
     public PrestamoController(PrestamoService prestamos) {
         this.prestamos = prestamos;
+    }
+
+    @Operation(summary = "Consultar mis préstamos",
+        description = "Devuelve los préstamos activos y el historial del estudiante de la sesión autenticada.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Préstamos propios"),
+        @ApiResponse(responseCode = "401", description = "Sin sesión"),
+        @ApiResponse(responseCode = "403", description = "No es estudiante")
+    })
+    @GetMapping("/mios")
+    public MisPrestamosResponse misPrestamos(
+            @Parameter(hidden = true) @AuthenticationPrincipal LibraryUserDetails usuario) {
+        return prestamos.misPrestamos(usuario.getId());
     }
 
     @Operation(summary = "Pedir un préstamo",

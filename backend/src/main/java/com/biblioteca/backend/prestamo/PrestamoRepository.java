@@ -2,6 +2,7 @@ package com.biblioteca.backend.prestamo;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import jakarta.persistence.LockModeType;
@@ -11,6 +12,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PrestamoRepository extends JpaRepository<Prestamo, Long> {
+
+    @Query("""
+        SELECT new com.biblioteca.backend.prestamo.PrestamoListadoResponse(
+            p.id, l.id, l.titulo, p.fechaPrestamo, p.fechaVencimiento, p.fechaDevolucion, p.estado)
+        FROM Prestamo p JOIN p.ejemplar e JOIN e.libro l
+        WHERE p.usuario.id = :usuarioId
+        """)
+    List<PrestamoListadoResponse> listarPropios(@Param("usuarioId") Long usuarioId);
 
     interface UbicacionPrestamo {
         Long getLibroId();

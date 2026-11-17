@@ -58,6 +58,8 @@ class PrestamoIntegrationTests {
     @Autowired private JdbcTemplate jdbc;
     @Autowired private PlatformTransactionManager transactionManager;
     @Autowired private PasswordEncoder passwords;
+    @Autowired private jakarta.persistence.EntityManager entityManager;
+    @Autowired private jakarta.persistence.EntityManagerFactory entityManagerFactory;
 
     // --- Datos de prueba ---
 
@@ -405,5 +407,82 @@ class PrestamoIntegrationTests {
         mvc.perform(post("/api/prestamos/" + creado.id() + "/devolucion").session(sesion)
             .header("X-CSRF-TOKEN", tokenAutenticado))
             .andExpect(status().isOk()).andExpect(jsonPath("$.estado").value("DEVUELTO"));
+    }
+
+    @Test
+    void misPrestamosSeparaOrdenaYNoExponeDatosAjenos() throws Exception {
+        Usuario ana = estudiante("mis-prestamos-ana@example.com");
+        Usuario luis = estudiante("mis-prestamos-luis@example.com");
+        Usuario vacio = estudiante("mis-prestamos-vacio@example.com");
+        Libro libro = libro("Libro propio", "EJ-MIOS-1", "EJ-MIOS-2", "EJ-MIOS-3", "EJ-MIOS-4", "EJ-MIOS-5", "EJ-MIOS-6");
+        Libro retirado = libro("Historial retirado", "EJ-MIOS-RET");
+        long[] ids = new long[7];
+        String[] codigos = {"EJ-MIOS-1", "EJ-MIOS-2", "EJ-MIOS-3", "EJ-MIOS-4", "EJ-MIOS-5", "EJ-MIOS-RET", "EJ-MIOS-6"};
+        for (int i = 0; i < codigos.length; i++) {
+            ids[i] = prestamos.saveAndFlush(new Prestamo(ejemplares.findByCodigo(codigos[i]).orElseThrow(), i == 4 ? luis : ana)).getId();
+        }
+        LocalDateTime inicio = LocalDateTime.of(2026, 1, 1, 12, 0);
+        jdbc.update("UPDATE prestamos SET fecha_prestamo = ?, fecha_vencimiento = ? WHERE id IN (?, ?, ?)",
+            inicio, inicio.plusDays(30), ids[0], ids[1], ids[4]);
+        jdbc.update("UPDATE prestamos SET fecha_prestamo = ?, fecha_vencimiento = ? WHERE id = ?",
+            inicio, inicio.plusDays(20), ids[2]);
+        jdbc.update("UPDATE prestamos SET fecha_prestamo = ?, fecha_vencimiento = ?, fecha_devolucion = ?, estado = 'DEVUELTO' WHERE id IN (?, ?)",
+            inicio, inicio.plusDays(30), inicio.plusDays(10), ids[3], ids[5]);
+        jdbc.update("UPDATE prestamos SET fecha_prestamo = ?, fecha_vencimiento = ?, fecha_devolucion = ?, estado = 'DEVUELTO' WHERE id = ?",
+            inicio, inicio.plusDays(30), inicio.plusDays(20), ids[6]);
+        retirado.retirar(); libros.flush(); entityManager.clear();
+
+        mvc.perform(get("/api/prestamos/mios").param("usuarioId", luis.getId().toString())
+                .with(user(new LibraryUserDetails(ana))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.activos.length()").value(3))
+            .andExpect(jsonPath("$.activos[0].id").value(ids[2]))
+            .andExpect(jsonPath("$.activos[1].id").value(ids[0]))
+            .andExpect(jsonPath("$.activos[2].id").value(ids[1]))
+            .andExpect(jsonPath("$.activos[0].libroId").value(libro.getId()))
+            .andExpect(jsonPath("$.activos[0].titulo").value("Libro propio"))
+            .andExpect(jsonPath("$.activos[0].fechaPrestamo").isNotEmpty())
+            .andExpect(jsonPath("$.activos[0].fechaVencimiento").isNotEmpty())
+            .andExpect(jsonPath("$.activos[0].fechaDevolucion").doesNotExist())
+            .andExpect(jsonPath("$.activos[0].estado").value("ACTIVO"))
+            .andExpect(jsonPath("$.historial.length()").value(3))
+            .andExpect(jsonPath("$.historial[0].id").value(ids[6]))
+            .andExpect(jsonPath("$.historial[1].id").value(ids[3]))
+            .andExpect(jsonPath("$.historial[2].id").value(ids[5]))
+            .andExpect(jsonPath("$.historial[2].titulo").value("Historial retirado"))
+            .andExpect(jsonPath("$.historial[2].fechaDevolucion").isNotEmpty())
+            .andExpect(jsonPath("$.historial[2].estado").value("DEVUELTO"));
+        mvc.perform(get("/api/prestamos/mios").with(user(new LibraryUserDetails(luis))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.activos.length()").value(1))
+            .andExpect(jsonPath("$.activos[0].id").value(ids[4])).andExpect(jsonPath("$.historial.length()").value(0));
+        mvc.perform(get("/api/prestamos/mios").with(user(new LibraryUserDetails(vacio))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.activos.length()").value(0))
+            .andExpect(jsonPath("$.historial.length()").value(0));
+    }
+
+    @Test
+    void misPrestamosRestringeRolesYEstaDocumentado() throws Exception {
+        mvc.perform(get("/api/prestamos/mios")).andExpect(status().isUnauthorized());
+        for (String rol : List.of("LIBRARIAN", "ADMIN")) {
+            mvc.perform(get("/api/prestamos/mios").with(user("personal").roles(rol))).andExpect(status().isForbidden());
+        }
+        mvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.paths['/api/prestamos/mios'].get.responses['200']").exists());
+    }
+
+    @Test
+    void consultaDeVariosPrestamosUsaUnaSolaSentencia() {
+        Usuario ana = estudiante("mis-prestamos-consultas@example.com");
+        libro("Libro N1 A", "EJ-N1-A"); libro("Libro N1 B", "EJ-N1-B");
+        prestamos.saveAndFlush(new Prestamo(ejemplares.findByCodigo("EJ-N1-A").orElseThrow(), ana));
+        prestamos.saveAndFlush(new Prestamo(ejemplares.findByCodigo("EJ-N1-B").orElseThrow(), ana));
+        entityManager.flush(); entityManager.clear();
+        var stats = entityManagerFactory.unwrap(org.hibernate.SessionFactory.class).getStatistics();
+        boolean habilitada = stats.isStatisticsEnabled();
+        try {
+            stats.setStatisticsEnabled(true); stats.clear();
+            assertEquals(2, prestamoService.misPrestamos(ana.getId()).activos().size());
+            assertEquals(1, stats.getPrepareStatementCount());
+        } finally { stats.setStatisticsEnabled(habilitada); }
     }
 }

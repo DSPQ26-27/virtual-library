@@ -8,7 +8,9 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import RegisterForm from "./components/RegisterForm.jsx";
 import BookForm from "./components/BookForm.jsx";
 import StaffRoute from "./components/StaffRoute.jsx";
-import { canManageCatalog } from "./auth/roles.js";
+import StudentRoute from "./components/StudentRoute.jsx";
+import MisPrestamosPage from "./components/MisPrestamosPage.jsx";
+import { canManageCatalog, isStudent } from "./auth/roles.js";
 import "./App.css";
 
 function App() {
@@ -44,6 +46,7 @@ function App() {
         {authenticated ? (
           <>
             <Link to="/catalogo">Catálogo</Link>
+            {isStudent(user) && <Link to="/mis-prestamos">Mis préstamos</Link>}
             {canManageCatalog(user) && <Link to="/admin/libros/nuevo">Añadir libro</Link>}
             <span>{user.nombre}</span>
             <button
@@ -106,6 +109,8 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route path="/mis-prestamos" element={<StudentRoute><MisPrestamosPage /></StudentRoute>} />
 
         <Route
           path="/libros/:id/ejemplares"

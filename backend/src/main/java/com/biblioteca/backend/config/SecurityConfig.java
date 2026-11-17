@@ -87,6 +87,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/prestamos", "/api/prestamos/{id}/devolucion")
                     .hasRole("STUDENT")
 
+                .requestMatchers(HttpMethod.GET, "/api/prestamos/mios")
+                    .hasRole("STUDENT")
+
                 // Resto de endpoints
                 .anyRequest()
                     .hasAnyRole("STUDENT", "LIBRARIAN", "ADMIN")
