@@ -98,6 +98,21 @@ class PrestamoPersistenceTests {
     }
 
     @Test
+    void consultaParaDevolucionSoloEncuentraElPrestamoDelPropietario() {
+        Usuario propietario = estudiante("propietario-devolucion@example.com");
+        Usuario otro = estudiante("otro-devolucion@example.com");
+        Prestamo prestamo = prestamos.saveAndFlush(new Prestamo(ejemplar("EJ-0001"), propietario));
+        entityManager.clear();
+
+        assertTrue(prestamos.findPropioParaDevolucion(prestamo.getId(), otro.getId()).isEmpty());
+        Prestamo bloqueado = prestamos.findPropioParaDevolucion(prestamo.getId(), propietario.getId()).orElseThrow();
+        assertEquals(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE, entityManager.getLockMode(bloqueado));
+        bloqueado.devolver();
+        assertEquals(EstadoPrestamo.DEVUELTO, releer(bloqueado).getEstado());
+        assertTrue(prestamos.findPropioParaDevolucion(-1L, propietario.getId()).isEmpty());
+    }
+
+    @Test
     void cuentaLosPrestamosActivosDeCadaUsuario() {
         Usuario ana = estudiante("prestamo-ana@example.com");
         Usuario luis = estudiante("prestamo-luis@example.com");

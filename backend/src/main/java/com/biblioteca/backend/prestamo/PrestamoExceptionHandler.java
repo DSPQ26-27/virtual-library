@@ -46,4 +46,16 @@ public class PrestamoExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(new ErrorResponse(ex.getMessage(), ex.getCodigo(), Map.of()));
     }
+
+    @ExceptionHandler(PrestamoNoEncontradoException.class)
+    public ResponseEntity<ErrorResponse> prestamoNoEncontrado(PrestamoNoEncontradoException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(new ErrorResponse(ex.getMessage(), "PRESTAMO_NO_ENCONTRADO", Map.of()));
+    }
+
+    @ExceptionHandler(PrestamoYaDevueltoException.class)
+    public ResponseEntity<ErrorResponse> prestamoYaDevuelto(PrestamoYaDevueltoException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(new ErrorResponse(ex.getMessage(), "PRESTAMO_YA_DEVUELTO", Map.of()));
+    }
 }

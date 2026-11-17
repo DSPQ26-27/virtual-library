@@ -69,4 +69,12 @@ public class Ejemplar {
     public void prestar() {
         this.estado = EstadoEjemplar.PRESTADO;
     }
+
+    /** Recupera la disponibilidad de una copia activa que estaba prestada. */
+    public void liberarTrasDevolucion() {
+        if (!activo || estado != EstadoEjemplar.PRESTADO) {
+            throw new IllegalStateException("El ejemplar no está activo y prestado.");
+        }
+        this.estado = EstadoEjemplar.DISPONIBLE;
+    }
 }

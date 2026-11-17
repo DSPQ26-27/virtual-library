@@ -25,6 +25,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -55,6 +57,7 @@ class PrestamoIntegrationTests {
     @Autowired private UsuarioRepository usuarios;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private PlatformTransactionManager transactionManager;
+    @Autowired private PasswordEncoder passwords;
 
     // --- Datos de prueba ---
 
@@ -333,5 +336,74 @@ class PrestamoIntegrationTests {
         catalogo("Zzprestamos Catalogo Dos", "TODOS")
             .andExpect(jsonPath("$.content[0].disponible").value(true));
         catalogo("Zzprestamos Catalogo Dos", "DISPONIBLES").andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void devolverUsaLaIdentidadDeSesionYConservaElHistorial() throws Exception {
+        Usuario propietario = estudiante("devolucion-propietario@example.com");
+        Usuario otro = estudiante("devolucion-otro@example.com");
+        Libro libro = libro("Devolución API", "EJ-DEV-API");
+        PrestamoResponse creado = prestamoService.prestar(propietario.getId(), libro.getId());
+        String ruta = "/api/prestamos/" + creado.id() + "/devolucion";
+
+        mvc.perform(post(ruta).with(user(new LibraryUserDetails(otro))).with(csrf()))
+            .andExpect(status().isNotFound()).andExpect(jsonPath("$.codigo").value("PRESTAMO_NO_ENCONTRADO"));
+        mvc.perform(post("/api/prestamos/999999999/devolucion")
+            .with(user(new LibraryUserDetails(propietario))).with(csrf()))
+            .andExpect(status().isNotFound()).andExpect(jsonPath("$.codigo").value("PRESTAMO_NO_ENCONTRADO"));
+        mvc.perform(post(ruta).with(user(new LibraryUserDetails(propietario))).with(csrf()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(creado.id()))
+            .andExpect(jsonPath("$.estado").value("DEVUELTO"))
+            .andExpect(jsonPath("$.fechaDevolucion").isNotEmpty());
+        prestamos.flush(); ejemplares.flush();
+        assertEquals("DISPONIBLE", estadoEjemplar("EJ-DEV-API"));
+        catalogo("Devolución API", "DISPONIBLES").andExpect(jsonPath("$.totalElements").value(1));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM prestamos WHERE id = ? AND estado = 'DEVUELTO' AND fecha_devolucion IS NOT NULL", Integer.class, creado.id()));
+        mvc.perform(post(ruta).with(user(new LibraryUserDetails(propietario))).with(csrf()))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.codigo").value("PRESTAMO_YA_DEVUELTO"));
+    }
+
+    @Test
+    void devolucionExigeSesionRolEstudianteYTokenCsrf() throws Exception {
+        String ruta = "/api/prestamos/1/devolucion";
+        mvc.perform(post(ruta).with(csrf())).andExpect(status().isUnauthorized());
+        for (String rol : List.of("LIBRARIAN", "ADMIN")) {
+            mvc.perform(post(ruta).with(user("personal").roles(rol)).with(csrf()))
+                .andExpect(status().isForbidden());
+        }
+        mvc.perform(post(ruta).with(user("estudiante").roles("STUDENT")))
+            .andExpect(status().isForbidden());
+        mvc.perform(post(ruta).with(user("estudiante").roles("STUDENT")).with(csrf().useInvalidToken()))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void swaggerDocumentaLaDevolucion() throws Exception {
+        mvc.perform(get("/v3/api-docs"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.paths['/api/prestamos/{id}/devolucion'].post.responses['200']").exists())
+            .andExpect(jsonPath("$.paths['/api/prestamos/{id}/devolucion'].post.responses['404']").exists())
+            .andExpect(jsonPath("$.paths['/api/prestamos/{id}/devolucion'].post.responses['409']").exists());
+    }
+
+    @Test
+    void devolucionUtilizaSesionRealDeLogin() throws Exception {
+        Usuario propietario = estudiante("devolucion-sesion@example.com");
+        propietario.setPasswordHash(passwords.encode("ClavePrueba123!"));
+        usuarios.saveAndFlush(propietario);
+        Libro libro = libro("Devolución sesión", "EJ-DEV-SESION");
+        PrestamoResponse creado = prestamoService.prestar(propietario.getId(), libro.getId());
+        var csrfInicial = mvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+        MockHttpSession sesion = (MockHttpSession) csrfInicial.getRequest().getSession(false);
+        String token = JsonPath.read(csrfInicial.getResponse().getContentAsString(), "$.token");
+        mvc.perform(post("/api/auth/login").session(sesion).header("X-CSRF-TOKEN", token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"email\":\"devolucion-sesion@example.com\",\"password\":\"ClavePrueba123!\"}"))
+            .andExpect(status().isOk());
+        var nuevoCsrf = mvc.perform(get("/api/auth/csrf").session(sesion)).andExpect(status().isOk()).andReturn();
+        String tokenAutenticado = JsonPath.read(nuevoCsrf.getResponse().getContentAsString(), "$.token");
+        mvc.perform(post("/api/prestamos/" + creado.id() + "/devolucion").session(sesion)
+            .header("X-CSRF-TOKEN", tokenAutenticado))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.estado").value("DEVUELTO"));
     }
 }

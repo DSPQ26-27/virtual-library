@@ -62,4 +62,24 @@ public class PrestamoService {
             throw new SinEjemplaresDisponiblesException();
         }
     }
+
+    @Transactional
+    public DevolucionResponse devolver(Long usuarioId, Long prestamoId) {
+        usuarios.findParaPrestamo(usuarioId).orElseThrow(PrestamoNoEncontradoException::new);
+        var ubicacion = prestamos.localizarPropio(prestamoId, usuarioId)
+            .orElseThrow(PrestamoNoEncontradoException::new);
+        libros.findParaDevolucion(ubicacion.getLibroId()).orElseThrow(PrestamoNoEncontradoException::new);
+        Ejemplar ejemplar = ejemplares.findByIdAndLibroId(ubicacion.getEjemplarId(), ubicacion.getLibroId())
+            .orElseThrow(PrestamoNoEncontradoException::new);
+        Prestamo prestamo = prestamos.findPropioParaDevolucion(prestamoId, usuarioId)
+            .orElseThrow(PrestamoNoEncontradoException::new);
+        if (!prestamo.isActivo()) throw new PrestamoYaDevueltoException();
+        if (!prestamo.getEjemplar().getId().equals(ejemplar.getId())) {
+            throw new IllegalStateException("El ejemplar del préstamo ha cambiado.");
+        }
+        prestamo.devolver();
+        // Punto de integración futuro de US10: decidir si liberar o asignar a la siguiente reserva.
+        ejemplar.liberarTrasDevolucion();
+        return new DevolucionResponse(prestamo.getId(), prestamo.getEstado(), prestamo.getFechaDevolucion());
+    }
 }
