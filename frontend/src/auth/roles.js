@@ -4,3 +4,8 @@ const ROLES_PERSONAL = ["LIBRARIAN", "ADMIN"];
 export function canManageCatalog(user) {
   return Array.isArray(user?.roles) && user.roles.some((role) => ROLES_PERSONAL.includes(role));
 }
+
+/** true si el usuario es estudiante: solo ellos pueden pedir préstamos (US07). */
+export function isStudent(user) {
+  return Array.isArray(user?.roles) && user.roles.includes("STUDENT");
+}

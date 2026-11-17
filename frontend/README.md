@@ -78,6 +78,33 @@ Implementación, reglas y endpoints: [gestión de ejemplares](../docs/gestion-ej
 Pruebas completas con React, Spring y PostgreSQL:
 [validación de ejemplares](../docs/validacion-gestion-ejemplares.md).
 
+## Préstamos (#59)
+
+Solo para estudiantes (rol STUDENT). Usa POST /api/prestamos de la Issue #58.
+
+- Cada tarjeta de un libro disponible muestra "Pedir préstamo". Bibliotecarios y
+  administradores no ven este botón (el backend también les responde 403).
+- Pide confirmación antes de enviar. Mientras se envía, los botones se desactivan
+  para no crear solicitudes duplicadas.
+- El backend elige automáticamente un ejemplar libre. Al confirmarse se muestra el
+  ejemplar y la fecha de devolución (30 días) y se recarga el catálogo para
+  actualizar la disponibilidad.
+- Los rechazos muestran el mensaje del backend: límite de 5 préstamos, préstamos
+  vencidos sin devolver o sin ejemplares disponibles (en este caso también se
+  recarga el catálogo). Ante 401 expira la sesión.
+
+Archivos:
+
+- src/services/loans.js: requestLoan, LoanError (con status y code) y formatDueDate.
+- src/components/LoanButton.jsx: botón, confirmación y envío.
+- src/components/CatalogPage.jsx: muestra el botón y el resultado.
+- src/auth/roles.js: isStudent.
+- tests/loans.test.js: 9 pruebas del servicio, de los roles y del formato de fecha.
+
+Probado a mano con PostgreSQL: un estudiante pide «Don Quijote de la Mancha»,
+recibe EJ-0001 con vencimiento a 30 días y el libro pasa a "Sin ejemplares
+disponibles"; un bibliotecario no ve el botón.
+
 ## Desarrollo y pruebas
 
 Desde frontend, usando las dependencias existentes:

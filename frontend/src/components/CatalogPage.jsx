@@ -3,13 +3,18 @@ import { Link } from "react-router";
 import { useAuth } from "../auth/AuthContext.js";
 import { getBooks, getCategories } from "../services/books.js";
 import { retireBook } from "../services/catalogAdmin.js";
-import { canManageCatalog } from "../auth/roles.js";
+import { canManageCatalog, isStudent } from "../auth/roles.js";
+import { formatDueDate } from "../services/loans.js";
+import LoanButton from "./LoanButton.jsx";
 import "./CatalogPage.css";
 
 export default function CatalogPage() {
   const { user, expireSession } = useAuth();
   // Gestión del catálogo (#52): solo bibliotecarios y administradores
   const staff = canManageCatalog(user);
+  // Préstamos (#59): solo estudiantes
+  const student = isStudent(user);
+  const [prestamo, setPrestamo] = useState({ phase: "idle", message: "" });
   const [confirmando, setConfirmando] = useState(null);
   const [retirada, setRetirada] = useState({ phase: "idle", message: "" });
   const [draft, setDraft] = useState("");
@@ -145,6 +150,24 @@ export default function CatalogPage() {
     }
   }
 
+  function prestamoHecho(loan) {
+    setPrestamo({
+      phase: "done",
+      message: `Préstamo confirmado: «${loan.titulo}» (ejemplar ${loan.ejemplarCodigo}). ` +
+        `Devuélvelo antes del ${formatDueDate(loan.fechaVencimiento)}.`,
+    });
+    reload(); // el libro puede dejar de estar disponible
+  }
+
+  function prestamoFallido(error) {
+    if (error.status === 401) {
+      expireSession();
+      return;
+    }
+    setPrestamo({ phase: "error", message: error.message || "No se ha podido realizar el préstamo." });
+    if (error.code === "SIN_EJEMPLARES") reload(); // otra persona se llevó la última copia
+  }
+
   function changePage(page) {
     focusAfterPaging.current = true;
     setQuery((current) => ({ ...current, page }));
@@ -236,6 +259,12 @@ export default function CatalogPage() {
       <div role="alert" aria-atomic="true">
         {retirada.phase === "error" && <p className="catalogo__error">{retirada.message}</p>}
       </div>
+      <div aria-live="polite" aria-atomic="true">
+        {prestamo.phase === "done" && <p className="catalogo__exito">{prestamo.message}</p>}
+      </div>
+      <div role="alert" aria-atomic="true">
+        {prestamo.phase === "error" && <p className="catalogo__error">{prestamo.message}</p>}
+      </div>
 
       <div aria-busy={loading}>
       {ready && state.data.content.length === 0 && (
@@ -272,6 +301,10 @@ export default function CatalogPage() {
                 <Link className="catalogo__actualizar catalogo__enlace" to={`/libros/${book.id}/ejemplares`}>
                   Ejemplares
                 </Link>
+
+                {student && (
+                  <LoanButton book={book} onLoaned={prestamoHecho} onError={prestamoFallido} />
+                )}
 
                 {staff && (
                   <div className="catalogo__gestion">
