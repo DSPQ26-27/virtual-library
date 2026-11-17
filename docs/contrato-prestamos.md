@@ -17,6 +17,7 @@ http://localhost:8080/swagger-ui.html, sección "Préstamos".
 | Petición | Qué hace | Éxito |
 |---|---|---|
 | POST /api/prestamos | Presta al estudiante de la sesión un ejemplar libre del libro | 201 |
+| POST /api/prestamos/{id}/devolucion | Devuelve un préstamo activo del estudiante de la sesión, sin cuerpo | 200 |
 
 Petición:
 
@@ -73,6 +74,41 @@ Formato: `{ "message": "...", "codigo": "...", "errors": { ... } }`.
   para evitar esperas cruzadas.
 - Red de seguridad en PostgreSQL: el índice `uq_prestamos_ejemplar_activo` (V10)
   impide dos préstamos activos del mismo ejemplar.
+
+## Devolución autónoma (US08)
+
+`POST /api/prestamos/{id}/devolucion` requiere sesión de estudiante y la
+cabecera `X-CSRF-TOKEN`. El identificador del estudiante se obtiene de la
+sesión; el cliente no lo aporta. No se necesita cuerpo. Ejemplo de respuesta:
+
+```json
+{ "id": 12, "estado": "DEVUELTO", "fechaDevolucion": "2026-11-17T12:40:00" }
+```
+
+Una devolución válida registra la fecha real, conserva el préstamo en el
+historial y deja disponible el ejemplar activo. Préstamo inexistente o ajeno:
+404 (`PRESTAMO_NO_ENCONTRADO`); ya devuelto: 409 (`PRESTAMO_YA_DEVUELTO`).
+Sin autorización se devuelve 401; rol incorrecto o CSRF inválido, 403. El
+filtro CSRF puede responder 403 a una petición anónima que carezca de token.
+Los errores de negocio incluyen `message`, `codigo` y `errors`; los de
+seguridad usan `message`.
+
+El servicio usa una transacción y bloqueos pesimistas en orden usuario, libro,
+ejemplar y préstamo; comprueba propiedad y estado antes de cerrar el préstamo.
+Si la liberación falla, se revierte también el cierre. El libro puede estar
+retirado. La disponibilidad se vuelve a reflejar en el catálogo.
+
+US10 no está implementada: el punto donde se libera la copia está identificado
+en `PrestamoService.devolver` para integrar la futura cola FIFO. La asignación
+de reservas y el criterio FIFO no están cumplidos por esta implementación.
+No existe aún pantalla ni endpoint de listado de «Mis préstamos».
+
+Validación del 17/11/2026: suite Maven en H2, 140 pruebas, 0 fallos y 1
+omitida (prueba exclusiva de PostgreSQL); 24 pruebas de servicio y API en
+PostgreSQL 17 aislado, todas correctas. Incluyen sesión real, permisos, CSRF,
+historial, catálogo, rollback, devoluciones simultáneas, devolución frente a
+solicitud e índice único parcial. Son pruebas automatizadas, no una prueba de
+carga ni una demostración de ausencia total de interbloqueos.
 
 Modelo de datos en [modelo-prestamos.md](modelo-prestamos.md) y validación en
 [validacion-prestamos.md](validacion-prestamos.md).

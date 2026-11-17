@@ -2,12 +2,28 @@ package com.biblioteca.backend.prestamo;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.Set;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PrestamoRepository extends JpaRepository<Prestamo, Long> {
+
+    interface UbicacionPrestamo {
+        Long getLibroId();
+        Long getEjemplarId();
+    }
+
+    @Query("SELECT p.ejemplar.libro.id AS libroId, p.ejemplar.id AS ejemplarId FROM Prestamo p WHERE p.id = :id AND p.usuario.id = :usuarioId")
+    Optional<UbicacionPrestamo> localizarPropio(@Param("id") Long id, @Param("usuarioId") Long usuarioId);
+
+    /** Para devolución: adquirir antes los bloqueos de usuario, libro y ejemplar, en ese orden. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Prestamo p WHERE p.id = :id AND p.usuario.id = :usuarioId")
+    Optional<Prestamo> findPropioParaDevolucion(@Param("id") Long id, @Param("usuarioId") Long usuarioId);
 
     boolean existsByEjemplarIdAndFechaDevolucionIsNull(Long ejemplarId);
 

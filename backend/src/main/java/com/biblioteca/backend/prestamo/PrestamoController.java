@@ -3,6 +3,7 @@ package com.biblioteca.backend.prestamo;
 import com.biblioteca.backend.auth.LibraryUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -11,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,5 +46,24 @@ public class PrestamoController {
             @Valid @RequestBody PrestamoRequest datos) {
         PrestamoResponse prestamo = prestamos.prestar(usuario.getId(), datos.libroId());
         return ResponseEntity.status(HttpStatus.CREATED).body(prestamo);
+    }
+
+    @Operation(summary = "Devolver un préstamo propio",
+        description = "El estudiante autenticado devuelve un préstamo activo de su sesión. "
+            + "Requiere autenticación por sesión y token CSRF en X-CSRF-TOKEN.",
+        parameters = @Parameter(name = "X-CSRF-TOKEN", in = ParameterIn.HEADER, required = true,
+            description = "Token obtenido de GET /api/auth/csrf para la sesión autenticada"))
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Devolución registrada"),
+        @ApiResponse(responseCode = "401", description = "Sin sesión"),
+        @ApiResponse(responseCode = "403", description = "No es estudiante o el token CSRF es inválido"),
+        @ApiResponse(responseCode = "404", description = "Préstamo inexistente o ajeno"),
+        @ApiResponse(responseCode = "409", description = "Préstamo ya devuelto")
+    })
+    @PostMapping("/{id}/devolucion")
+    public ResponseEntity<DevolucionResponse> devolver(
+            @Parameter(description = "Identificador del préstamo", required = true) @PathVariable Long id,
+            @Parameter(hidden = true) @AuthenticationPrincipal LibraryUserDetails usuario) {
+        return ResponseEntity.ok(prestamos.devolver(usuario.getId(), id));
     }
 }

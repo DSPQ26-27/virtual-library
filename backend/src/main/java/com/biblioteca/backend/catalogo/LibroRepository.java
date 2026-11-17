@@ -32,4 +32,9 @@ public interface LibroRepository extends JpaRepository<Libro, Long>, JpaSpecific
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT l FROM Libro l WHERE l.id = :id AND l.retirado = false")
     Optional<Libro> findParaPrestamo(@Param("id") Long id);
+
+    /** También permite devolver préstamos de libros retirados. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT l FROM Libro l WHERE l.id = :id")
+    Optional<Libro> findParaDevolucion(@Param("id") Long id);
 }
