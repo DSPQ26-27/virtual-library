@@ -89,3 +89,6 @@ Prueba manual en PostgreSQL (la V10 no existe en H2):
 | `\d prestamos` muestra las columnas, los 3 CHECK y los índices nuevos | ✅ |
 | Dos `INSERT` de préstamos activos del ejemplar EJ-0001 en el mismo comando | ✅ el segundo falla con `uq_prestamos_ejemplar_activo` |
 | `SELECT COUNT(*) FROM prestamos` después del error | ✅ 0: no queda ningún préstamo a medias |
+
+Uso de esta tabla al pedir un préstamo (Issues #58 y #59): ver
+[contrato-prestamos.md](contrato-prestamos.md) y [validacion-prestamos.md](validacion-prestamos.md).

@@ -36,6 +36,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -300,5 +301,37 @@ class PrestamoIntegrationTests {
             jdbc.update("DELETE FROM libros WHERE id = ?", libroId);
             jdbc.update("DELETE FROM usuarios WHERE id IN (?, ?)", ids[0], ids[1]);
         }
+    }
+
+    // --- F) Disponibilidad en el catálogo ---
+
+    private ResultActions catalogo(String titulo, String vista) throws Exception {
+        return mvc.perform(get("/api/libros").param("q", titulo).param("vista", vista)
+            .with(user("lector").roles("STUDENT")));
+    }
+
+    @Test
+    void trasPrestarLaUnicaCopiaElLibroDejaDeEstarDisponible() throws Exception {
+        Libro libro = libro("Zzprestamos Catalogo Una", "EJ-PR-CAT-1");
+        catalogo("Zzprestamos Catalogo Una", "DISPONIBLES").andExpect(jsonPath("$.totalElements").value(1));
+
+        pedir(estudiante("prestamos-ana@example.com"), libro.getId()).andExpect(status().isCreated());
+
+        catalogo("Zzprestamos Catalogo Una", "TODOS")
+            .andExpect(jsonPath("$.totalElements").value(1))
+            .andExpect(jsonPath("$.content[0].disponible").value(false));
+        catalogo("Zzprestamos Catalogo Una", "DISPONIBLES").andExpect(jsonPath("$.totalElements").value(0));
+        catalogo("Zzprestamos Catalogo Una", "BIBLIOTECA").andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void conOtraCopiaLibreElLibroSigueDisponible() throws Exception {
+        Libro libro = libro("Zzprestamos Catalogo Dos", "EJ-PR-CAT-2A", "EJ-PR-CAT-2B");
+
+        pedir(estudiante("prestamos-ana@example.com"), libro.getId()).andExpect(status().isCreated());
+
+        catalogo("Zzprestamos Catalogo Dos", "TODOS")
+            .andExpect(jsonPath("$.content[0].disponible").value(true));
+        catalogo("Zzprestamos Catalogo Dos", "DISPONIBLES").andExpect(jsonPath("$.totalElements").value(1));
     }
 }
