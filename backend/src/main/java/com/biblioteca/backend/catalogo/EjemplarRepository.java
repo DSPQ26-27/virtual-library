@@ -32,4 +32,18 @@ public interface EjemplarRepository extends JpaRepository<Ejemplar, Long> {
           )
         """)
     Set<Long> findLibrosConEjemplarPrestable(@Param("libroIds") Collection<Long> libroIds);
+
+    /** Ejemplares de un libro que se pueden prestar ahora, el más antiguo primero (US07). */
+    @Query("""
+        SELECT e FROM Ejemplar e
+        WHERE e.libro.id = :libroId
+          AND e.activo = true
+          AND e.estado = com.biblioteca.backend.catalogo.EstadoEjemplar.DISPONIBLE
+          AND NOT EXISTS (
+              SELECT p.id FROM Prestamo p
+              WHERE p.ejemplar = e AND p.estado = com.biblioteca.backend.prestamo.EstadoPrestamo.ACTIVO
+          )
+        ORDER BY e.id
+        """)
+    List<Ejemplar> findPrestables(@Param("libroId") Long libroId);
 }

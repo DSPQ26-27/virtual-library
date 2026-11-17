@@ -1,5 +1,6 @@
 package com.biblioteca.backend.prestamo;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Set;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,4 +19,13 @@ public interface PrestamoRepository extends JpaRepository<Prestamo, Long> {
 
     /** Préstamos de un usuario en un estado; con ACTIVO se comprueba el límite de 5 (US07). */
     long countByUsuarioIdAndEstado(Long usuarioId, EstadoPrestamo estado);
+
+    boolean existsByUsuarioIdAndEstadoAndFechaVencimientoBefore(
+        Long usuarioId, EstadoPrestamo estado, LocalDateTime fecha);
+
+    /** Bloqueo por retraso (US12): algún préstamo activo ya vencido. */
+    default boolean tienePrestamosVencidos(Long usuarioId) {
+        return existsByUsuarioIdAndEstadoAndFechaVencimientoBefore(
+            usuarioId, EstadoPrestamo.ACTIVO, LocalDateTime.now());
+    }
 }
