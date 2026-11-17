@@ -85,3 +85,6 @@ con préstamos activos, incluso si su estado almacenado indica DISPONIBLE.
 Contrato y reglas en [gestion-ejemplares.md](gestion-ejemplares.md).
 Validación completa con PostgreSQL en
 [validacion-gestion-ejemplares.md](validacion-gestion-ejemplares.md).
+
+La V9 y la V10 completan esta tabla para los préstamos de la US07:
+ver [modelo-prestamos.md](modelo-prestamos.md).
