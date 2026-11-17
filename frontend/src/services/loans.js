@@ -78,3 +78,82 @@ export function formatDueDate(iso) {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(typeof iso === "string" ? iso : "");
   return match ? `${match[3]}/${match[2]}/${match[1]}` : "";
 }
+
+function isListedLoan(loan, estado) {
+  return loan && typeof loan === "object" &&
+    Number.isSafeInteger(loan.id) && loan.id > 0 &&
+    Number.isSafeInteger(loan.libroId) && loan.libroId > 0 &&
+    typeof loan.titulo === "string" && loan.titulo.trim().length > 0 &&
+    typeof loan.fechaPrestamo === "string" && Boolean(formatDueDate(loan.fechaPrestamo)) &&
+    typeof loan.fechaVencimiento === "string" && Boolean(formatDueDate(loan.fechaVencimiento)) &&
+    loan.estado === estado && (estado === "ACTIVO" ? loan.fechaDevolucion == null :
+      typeof loan.fechaDevolucion === "string" && Boolean(formatDueDate(loan.fechaDevolucion)));
+}
+
+/** Consulta los préstamos del estudiante de la sesión, con cancelación opcional. */
+export async function getMyLoans({ signal } = {}) {
+  const timeout = AbortSignal.timeout(10000);
+  try {
+    const response = await fetch("/api/prestamos/mios", {
+      method: "GET", headers: { Accept: "application/json" }, credentials: "include",
+      cache: "no-store", redirect: "error", signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+    if (response.status !== 200) {
+      const messages = {
+        401: "Tu sesión ha caducado. Inicia sesión de nuevo.",
+        403: "No tienes permiso para consultar tus préstamos.",
+      };
+      throw new LoanError(messages[response.status] || "No se han podido cargar tus préstamos.", response.status);
+    }
+    let data;
+    try { data = await response.json(); }
+    catch (error) {
+      if (signal?.aborted || timeout.aborted) throw error;
+      throw new LoanError("La respuesta de préstamos no tiene el formato esperado.");
+    }
+    if (!data || !Array.isArray(data.activos) || !Array.isArray(data.historial) ||
+        !data.activos.every((loan) => isListedLoan(loan, "ACTIVO")) ||
+        !data.historial.every((loan) => isListedLoan(loan, "DEVUELTO"))) {
+      throw new LoanError("La respuesta de préstamos no tiene el formato esperado.");
+    }
+    return data;
+  } catch (error) {
+    if (signal?.aborted || error instanceof LoanError) throw error;
+    throw new LoanError(timeout.aborted ? "El servidor tarda demasiado en responder. Inténtalo más tarde." :
+      "No se ha podido conectar con el servidor.");
+  }
+}
+
+/** Registra la devolución; el servidor identifica al estudiante por la sesión. */
+export async function returnLoan(prestamoId) {
+  if (!Number.isSafeInteger(prestamoId) || prestamoId <= 0) throw new LoanError("Préstamo no válido.");
+  const token = await csrfToken();
+  const timeout = AbortSignal.timeout(10000);
+  try {
+    const response = await fetch(`/api/prestamos/${prestamoId}/devolucion`, {
+      method: "POST", headers: { Accept: "application/json", "X-CSRF-TOKEN": token },
+      credentials: "include", cache: "no-store", redirect: "error", signal: timeout,
+    });
+    let body = null;
+    try { body = JSON.parse(await response.text()); }
+    catch (error) { if (timeout.aborted) throw error; }
+    if (response.status === 200) {
+      if (body?.id !== prestamoId || body.estado !== "DEVUELTO" || !formatDueDate(body.fechaDevolucion)) {
+        throw new LoanError("No se pudo confirmar la respuesta de devolución.", 200);
+      }
+      return body;
+    }
+    const messages = {
+      401: "Tu sesión ha caducado. Inicia sesión de nuevo.",
+      403: "No se ha podido autorizar la devolución.",
+      404: "El préstamo no existe o ya no está disponible.",
+      409: "Este préstamo ya ha sido devuelto.",
+    };
+    throw new LoanError(messages[response.status] || "No se ha podido confirmar la devolución.",
+      response.status, typeof body?.codigo === "string" ? body.codigo : "");
+  } catch (error) {
+    if (error instanceof LoanError) throw error;
+    throw new LoanError(timeout.aborted ? "La devolución ha tardado demasiado; comprobaremos su estado." :
+      "No se ha podido confirmar la devolución. Comprobaremos su estado.");
+  }
+}

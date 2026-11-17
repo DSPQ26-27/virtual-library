@@ -1,0 +1,15 @@
+.mis-prestamos { max-width: 1100px; }
+.mis-prestamos__cabecera { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; justify-content: space-between; }
+.mis-prestamos__cabecera button { padding: 0.6rem 1rem; border: 1px solid #6b7280; border-radius: 6px; background: #fff; color: #172033; font: inherit; cursor: pointer; }
+.mis-prestamos__cabecera button:disabled { opacity: 0.6; cursor: wait; }
+.mis-prestamos__cabecera button:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.mis-prestamos__lista { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 1rem; padding: 0; list-style: none; }
+.mis-prestamos__tarjeta { border: 1px solid #d1d5db; border-radius: 8px; padding: 1rem; overflow-wrap: anywhere; }
+.mis-prestamos__tarjeta h4 { margin: 0 0 0.75rem; }
+.mis-prestamos__tarjeta p { margin: 0.5rem 0; }
+.mis-prestamos__error { color: #b91c1c; }
+.mis-prestamos__tarjeta button { padding: 0.6rem 1rem; border: 1px solid #6b7280; border-radius: 6px; background: #fff; color: #172033; font: inherit; cursor: pointer; }
+.mis-prestamos__tarjeta button:disabled { opacity: 0.6; cursor: wait; }
+.mis-prestamos__tarjeta button:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.mis-prestamos__acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.mis-prestamos__acciones p { flex-basis: 100%; }

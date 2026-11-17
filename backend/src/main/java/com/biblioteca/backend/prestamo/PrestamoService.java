@@ -7,6 +7,7 @@ import com.biblioteca.backend.catalogo.LibroNoEncontradoException;
 import com.biblioteca.backend.catalogo.LibroRepository;
 import com.biblioteca.backend.usuario.Usuario;
 import com.biblioteca.backend.usuario.UsuarioRepository;
+import java.util.Comparator;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,18 @@ public class PrestamoService {
         this.usuarios = usuarios;
         this.libros = libros;
         this.ejemplares = ejemplares;
+    }
+
+    @Transactional(readOnly = true)
+    public MisPrestamosResponse misPrestamos(long usuarioId) {
+        var propios = prestamos.listarPropios(usuarioId);
+        var activos = propios.stream().filter(p -> p.estado() == EstadoPrestamo.ACTIVO)
+            .sorted(Comparator.comparing(PrestamoListadoResponse::fechaVencimiento)
+                .thenComparing(PrestamoListadoResponse::id)).toList();
+        var historial = propios.stream().filter(p -> p.estado() == EstadoPrestamo.DEVUELTO)
+            .sorted(Comparator.comparing(PrestamoListadoResponse::fechaDevolucion).reversed()
+                .thenComparing(PrestamoListadoResponse::id)).toList();
+        return new MisPrestamosResponse(activos, historial);
     }
 
     @Transactional
