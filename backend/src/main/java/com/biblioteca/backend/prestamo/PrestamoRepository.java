@@ -15,4 +15,7 @@ public interface PrestamoRepository extends JpaRepository<Prestamo, Long> {
         WHERE p.ejemplar.id IN :ejemplarIds AND p.fechaDevolucion IS NULL
         """)
     Set<Long> findEjemplarIdsConPrestamoActivo(@Param("ejemplarIds") Collection<Long> ejemplarIds);
+
+    /** Préstamos de un usuario en un estado; con ACTIVO se comprueba el límite de 5 (US07). */
+    long countByUsuarioIdAndEstado(Long usuarioId, EstadoPrestamo estado);
 }
