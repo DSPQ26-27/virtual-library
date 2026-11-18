@@ -24,6 +24,7 @@ public class Prestamo {
 
     /** Días que dura un préstamo (US07). */
     public static final int DIAS_PRESTAMO = 30;
+    public static final int MAX_RENOVACIONES = 2;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -46,6 +47,9 @@ public class Prestamo {
     @Column(name = "fecha_vencimiento", nullable = false)
     private LocalDateTime fechaVencimiento;
 
+    @Column(name = "numero_renovaciones", nullable = false)
+    private int numeroRenovaciones = 0;
+
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR) // la columna es VARCHAR, no un tipo ENUM de la base de datos
     @Column(nullable = false, length = 20)
@@ -67,8 +71,15 @@ public class Prestamo {
     public LocalDateTime getFechaPrestamo() { return fechaPrestamo; }
     public LocalDateTime getFechaDevolucion() { return fechaDevolucion; }
     public LocalDateTime getFechaVencimiento() { return fechaVencimiento; }
+    public int getNumeroRenovaciones() { return numeroRenovaciones; }
     public EstadoPrestamo getEstado() { return estado; }
     public boolean isActivo() { return estado == EstadoPrestamo.ACTIVO; }
+
+    /** El servicio comprueba las condiciones antes de renovar, dentro de la transacción. */
+    public void renovar() {
+        fechaVencimiento = fechaVencimiento.plusDays(DIAS_PRESTAMO);
+        numeroRenovaciones++;
+    }
 
     /** Cierra el préstamo; si ya estaba devuelto no cambia nada. */
     public void devolver() {

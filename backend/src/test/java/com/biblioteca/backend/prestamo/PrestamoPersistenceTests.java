@@ -104,12 +104,12 @@ class PrestamoPersistenceTests {
         Prestamo prestamo = prestamos.saveAndFlush(new Prestamo(ejemplar("EJ-0001"), propietario));
         entityManager.clear();
 
-        assertTrue(prestamos.findPropioParaDevolucion(prestamo.getId(), otro.getId()).isEmpty());
-        Prestamo bloqueado = prestamos.findPropioParaDevolucion(prestamo.getId(), propietario.getId()).orElseThrow();
+        assertTrue(prestamos.findPropioParaActualizar(prestamo.getId(), otro.getId()).isEmpty());
+        Prestamo bloqueado = prestamos.findPropioParaActualizar(prestamo.getId(), propietario.getId()).orElseThrow();
         assertEquals(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE, entityManager.getLockMode(bloqueado));
         bloqueado.devolver();
         assertEquals(EstadoPrestamo.DEVUELTO, releer(bloqueado).getEstado());
-        assertTrue(prestamos.findPropioParaDevolucion(-1L, propietario.getId()).isEmpty());
+        assertTrue(prestamos.findPropioParaActualizar(-1L, propietario.getId()).isEmpty());
     }
 
     @Test
@@ -118,6 +118,7 @@ class PrestamoPersistenceTests {
         Usuario luis = estudiante("prestamo-luis@example.com");
         Prestamo anterior = prestamos.save(new Prestamo(ejemplar("EJ-0001"), ana));
         anterior.devolver();
+        prestamos.flush(); // PostgreSQL comprueba el índice único al insertar el siguiente préstamo.
         prestamos.save(new Prestamo(ejemplar("EJ-0001"), ana));
         prestamos.save(new Prestamo(ejemplar("EJ-0004"), ana));
         prestamos.flush();
@@ -137,7 +138,7 @@ class PrestamoPersistenceTests {
     }
 
     @Test
-    void soloSeAdmitenLosEstadosActivoYDevuelto() {
+    void seRechazanEstadosDesconocidos() {
         long usuarioId = estudiante("regla-estado@example.com").getId();
 
         assertThrows(DataIntegrityViolationException.class,

@@ -50,7 +50,7 @@ public class EjemplarGestionService {
         Ejemplar ejemplar = buscar(libroId, ejemplarId);
         if (!ejemplar.isActivo()) throw new EjemplarRetiradoException();
         if (datos.estado() != EstadoEjemplar.PRESTADO
-                && prestamos.existsByEjemplarIdAndFechaDevolucionIsNull(ejemplarId)) {
+                && prestamos.tienePrestamoActivo(ejemplarId)) {
             throw new EjemplarConPrestamoActivoException(
                 "No se puede cambiar el estado de un ejemplar con un préstamo activo.");
         }
@@ -64,7 +64,7 @@ public class EjemplarGestionService {
         Ejemplar ejemplar = buscar(libroId, ejemplarId);
         if (!ejemplar.isActivo()) return;
         if (ejemplar.getEstado() == EstadoEjemplar.PRESTADO
-                || prestamos.existsByEjemplarIdAndFechaDevolucionIsNull(ejemplarId)) {
+                || prestamos.tienePrestamoActivo(ejemplarId)) {
             throw new EjemplarConPrestamoActivoException(
                 "No se puede retirar un ejemplar con un préstamo activo.");
         }

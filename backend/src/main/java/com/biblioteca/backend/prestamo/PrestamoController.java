@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Préstamos (US07). Solo STUDENT puede pedirlos (lo exige SecurityConfig). */
-@Tag(name = "Préstamos", description = "Préstamo de ejemplares a estudiantes (US07)")
+@Tag(name = "Préstamos", description = "Préstamos, devoluciones y renovaciones de estudiantes")
 @RestController
 @RequestMapping("/api/prestamos")
 public class PrestamoController {
@@ -79,5 +79,27 @@ public class PrestamoController {
             @Parameter(description = "Identificador del préstamo", required = true) @PathVariable Long id,
             @Parameter(hidden = true) @AuthenticationPrincipal LibraryUserDetails usuario) {
         return ResponseEntity.ok(prestamos.devolver(usuario.getId(), id));
+    }
+
+    @Operation(summary = "Renovar un préstamo propio",
+        description = "Amplía 30 días el vencimiento actual, hasta 2 veces. Solo permite préstamos propios, "
+            + "activos y no vencidos de estudiantes sin bloqueo. Rechaza la renovación si hay solicitudes "
+            + "pendientes del libro y no quedan ejemplares libres. No requiere cuerpo. "
+            + "Requiere sesión de estudiante y token CSRF en X-CSRF-TOKEN.",
+        parameters = @Parameter(name = "X-CSRF-TOKEN", in = ParameterIn.HEADER, required = true,
+            description = "Token obtenido de GET /api/auth/csrf para la sesión autenticada"))
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Renovación registrada con contador y nuevo vencimiento"),
+        @ApiResponse(responseCode = "401", description = "Sin sesión"),
+        @ApiResponse(responseCode = "403", description = "No es estudiante o el token CSRF es inválido"),
+        @ApiResponse(responseCode = "404", description = "Préstamo inexistente o ajeno"),
+        @ApiResponse(responseCode = "409", description = "Préstamo devuelto, cancelado, vencido, límite de 2 renovaciones, "
+            + "estudiante bloqueado o lista de espera sin ejemplares libres")
+    })
+    @PostMapping("/{id}/renovacion")
+    public RenovacionResponse renovar(
+            @Parameter(description = "Identificador del préstamo", required = true) @PathVariable Long id,
+            @Parameter(hidden = true) @AuthenticationPrincipal LibraryUserDetails usuario) {
+        return prestamos.renovar(usuario.getId(), id);
     }
 }

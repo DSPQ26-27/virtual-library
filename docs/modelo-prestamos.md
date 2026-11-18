@@ -12,8 +12,9 @@ migración V8 (US06) para poder registrar los préstamos de los estudiantes.
 | usuario_id | V8 | Estudiante que lo tiene (FK a `usuarios`) |
 | fecha_prestamo | V8 | Cuándo se prestó |
 | fecha_devolucion | V8 | Cuándo se devolvió; vacía mientras el préstamo está activo |
-| fecha_vencimiento | V9 | Fecha límite de devolución: fecha del préstamo + 30 días |
-| estado | V9 | `ACTIVO` o `DEVUELTO` |
+| fecha_vencimiento | V9, V11 | Fecha del préstamo + 30 días inicialmente; +30 días por renovación |
+| estado | V9, V11 | `ACTIVO`, `DEVUELTO` o `CANCELADO` |
+| numero_renovaciones | V11 | Contador de renovaciones, de 0 a 2; inicialmente 0 |
 
 La V9 rellena el vencimiento y el estado de los préstamos que ya existieran
 antes de hacer obligatorio el vencimiento.
@@ -37,10 +38,11 @@ Java tuviera un fallo.
 
 | Regla | Migración | Qué impide |
 |---|---|---|
-| `ck_prestamos_estado` | V9 | Estados distintos de `ACTIVO` y `DEVUELTO` |
-| `ck_prestamos_estado_devolucion` | V9 | Un préstamo `ACTIVO` con fecha de devolución, o uno `DEVUELTO` sin ella |
+| `ck_prestamos_estado` | V9, V11 | Estados distintos de `ACTIVO`, `DEVUELTO` y `CANCELADO` |
+| `ck_prestamos_estado_devolucion` | V9, V11 | Un préstamo `ACTIVO` o `CANCELADO` con fecha de devolución, o uno `DEVUELTO` sin ella |
 | `ck_prestamos_vencimiento` | V9 | Un vencimiento anterior o igual a la fecha del préstamo |
 | `uq_prestamos_ejemplar_activo` | V10 | Dos préstamos `ACTIVO` del mismo ejemplar a la vez |
+| `ck_prestamos_renovaciones` | V11 | Contadores inferiores a 0 o superiores a 2 |
 
 `uq_prestamos_ejemplar_activo` es un índice único parcial: solo se aplica a
 las filas `ACTIVO`, así que el historial puede tener muchos préstamos devueltos
@@ -60,12 +62,18 @@ tests, no admite índices con `WHERE`.
 - `Prestamo`: entidad. Al crearla pone la fecha del préstamo, el vencimiento a
   `DIAS_PRESTAMO` (30) días y el estado `ACTIVO`. `devolver()` guarda la fecha
   de devolución y pasa a `DEVUELTO`; si ya estaba devuelto no cambia nada.
-- `EstadoPrestamo`: `ACTIVO` y `DEVUELTO`; coincide con el CHECK de la tabla.
+- `EstadoPrestamo`: `ACTIVO`, `DEVUELTO` y `CANCELADO`; coincide con el CHECK de la tabla.
 - `PrestamoRepository`:
   - `countByUsuarioIdAndEstado`: préstamos de un estudiante en un estado
     (con `ACTIVO` se comprobará el límite de 5 en la Issue #58).
-  - `existsByEjemplarIdAndFechaDevolucionIsNull` y
+  - `tienePrestamoActivo` y
     `findEjemplarIdsConPrestamoActivo` (US06): préstamos activos de ejemplares.
+  - `findPropioParaActualizar`: consulta con bloqueo pesimista reutilizada en
+    devoluciones y renovaciones.
+
+La renovación de US09 suma 30 días al vencimiento y aumenta el contador dentro
+de la misma transacción. V12 incorpora el registro mínimo de solicitudes de
+espera. Detalles en [renovacion-prestamos.md](renovacion-prestamos.md).
 
 ## Pruebas
 
