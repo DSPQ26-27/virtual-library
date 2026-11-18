@@ -32,6 +32,39 @@ class SolicitudEsperaIntegrationTests {
     @Autowired SolicitudEsperaRepository solicitudes;
     @Autowired SolicitudEsperaService servicio;
     @Autowired JdbcTemplate jdbc;
+
+    @Test
+    void soloPermiteCancelarSolicitudesPropiasConCsrfYConservaHistorial() throws Exception {
+        Usuario usuario = estudiante();
+        Usuario otro = estudiante();
+        Libro libro = libro();
+        var solicitud = servicio.apuntarse(usuario.getId(), libro.getId());
+        String ruta = "/api/espera/" + solicitud.id() + "/cancelacion";
+        mvc.perform(post(ruta).with(user(new LibraryUserDetails(otro))).with(csrf()))
+                .andExpect(status().isNotFound());
+        mvc.perform(post(ruta).with(user(new LibraryUserDetails(usuario))))
+                .andExpect(status().isForbidden());
+        mvc.perform(post(ruta).with(csrf())).andExpect(status().isUnauthorized());
+        mvc.perform(post(ruta).with(user("bibliotecario").roles("LIBRARIAN")).with(csrf()))
+                .andExpect(status().isForbidden());
+        for (int i = 0; i < 2; i++) {
+            mvc.perform(post(ruta).with(user(new LibraryUserDetails(usuario))).with(csrf()))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.estado").value("CANCELADA"));
+        }
+        assertTrue(solicitudes.existsById(solicitud.id()));
+        assertNotEquals(solicitud.id(), servicio.apuntarse(usuario.getId(), libro.getId()).id());
+    }
+
+    @Test
+    void noPermiteCancelarUnaSolicitudAsignada() throws Exception {
+        Usuario usuario = estudiante();
+        var solicitud = solicitudes.saveAndFlush(new SolicitudEspera(libro(), usuario));
+        solicitud.asignar();
+        solicitudes.flush();
+        mvc.perform(post("/api/espera/" + solicitud.getId() + "/cancelacion")
+                .with(user(new LibraryUserDetails(usuario))).with(csrf()))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.codigo").value("SOLICITUD_ASIGNADA"));
+    }
     private Usuario estudiante() {
         Usuario usuario = new Usuario();
         usuario.setNombre("Estudiante de prueba");

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PathVariable;
 
 @RestController
 @RequestMapping("/api/espera")
@@ -34,6 +35,12 @@ public class SolicitudEsperaController {
     public List<SolicitudEsperaResponse> misSolicitudes(
             @AuthenticationPrincipal LibraryUserDetails usuario) {
         return servicio.misSolicitudes(usuario.getId());
+    }
+
+    @PostMapping("/{id}/cancelacion")
+    public SolicitudEsperaResponse cancelar(@AuthenticationPrincipal LibraryUserDetails usuario,
+            @PathVariable Long id) {
+        return servicio.cancelar(usuario.getId(), id);
     }
 
 }

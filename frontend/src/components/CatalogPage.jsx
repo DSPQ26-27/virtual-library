@@ -6,6 +6,7 @@ import { retireBook } from "../services/catalogAdmin.js";
 import { canManageCatalog, isStudent } from "../auth/roles.js";
 import { formatDueDate } from "../services/loans.js";
 import LoanButton from "./LoanButton.jsx";
+import WaitlistButton from "./WaitlistButton.jsx";
 import "./CatalogPage.css";
 
 export default function CatalogPage() {
@@ -305,6 +306,7 @@ export default function CatalogPage() {
                 {student && (
                   <LoanButton book={book} onLoaned={prestamoHecho} onError={prestamoFallido} />
                 )}
+                {student && <WaitlistButton book={book} />}
 
                 {staff && (
                   <div className="catalogo__gestion">
