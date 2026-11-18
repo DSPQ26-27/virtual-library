@@ -10,6 +10,7 @@ import BookForm from "./components/BookForm.jsx";
 import StaffRoute from "./components/StaffRoute.jsx";
 import StudentRoute from "./components/StudentRoute.jsx";
 import MisPrestamosPage from "./components/MisPrestamosPage.jsx";
+import MisReservasPage from "./components/MisReservasPage.jsx";
 import { canManageCatalog, isStudent } from "./auth/roles.js";
 import "./App.css";
 
@@ -47,6 +48,7 @@ function App() {
           <>
             <Link to="/catalogo">Catálogo</Link>
             {isStudent(user) && <Link to="/mis-prestamos">Mis préstamos</Link>}
+            {isStudent(user) && <Link to="/mis-reservas">Mis reservas</Link>}
             {canManageCatalog(user) && <Link to="/admin/libros/nuevo">Añadir libro</Link>}
             <span>{user.nombre}</span>
             <button
@@ -111,6 +113,7 @@ function App() {
         />
 
         <Route path="/mis-prestamos" element={<StudentRoute><MisPrestamosPage /></StudentRoute>} />
+        <Route path="/mis-reservas" element={<StudentRoute><MisReservasPage /></StudentRoute>} />
 
         <Route
           path="/libros/:id/ejemplares"

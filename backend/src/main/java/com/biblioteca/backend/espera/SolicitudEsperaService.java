@@ -65,5 +65,18 @@ public class SolicitudEsperaService {
                 .toList();
     }
 
+    @Transactional
+    public SolicitudEsperaResponse cancelar(Long usuarioId, Long solicitudId) {
+        solicitudes.bloquearOperaciones();
+        SolicitudEspera solicitud = solicitudes.findByIdAndUsuarioId(solicitudId, usuarioId)
+                .orElseThrow(SolicitudEsperaNoEncontradaException::new);
+        if (solicitud.getEstado() == EstadoSolicitudEspera.ASIGNADA) {
+            throw new SolicitudEsperaRechazadaException(
+                    "SOLICITUD_ASIGNADA", "La solicitud ya tiene un préstamo. Consúltalo en Mis préstamos.");
+        }
+        solicitud.cancelar();
+        return SolicitudEsperaResponse.from(solicitud);
+    }
+
 }
 

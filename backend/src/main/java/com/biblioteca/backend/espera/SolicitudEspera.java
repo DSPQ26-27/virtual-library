@@ -48,4 +48,8 @@ public class SolicitudEspera {
         estado = EstadoSolicitudEspera.ASIGNADA;
     }
 
+    public void cancelar() {
+        estado = EstadoSolicitudEspera.CANCELADA;
+    }
+
 }

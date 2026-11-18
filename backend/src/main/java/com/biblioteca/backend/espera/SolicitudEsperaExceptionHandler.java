@@ -15,6 +15,12 @@ public class SolicitudEsperaExceptionHandler {
 
     public record ErrorResponse(String message, String codigo, Map<String, String> errors) {}
 
+    @ExceptionHandler(SolicitudEsperaNoEncontradaException.class)
+    public ResponseEntity<ErrorResponse> solicitudNoEncontrada(SolicitudEsperaNoEncontradaException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(ex.getMessage(), "SOLICITUD_NO_ENCONTRADA", Map.of()));
+    }
+
 
     @ExceptionHandler(SolicitudEsperaRechazadaException.class)
     public ResponseEntity<ErrorResponse> solicitudRechazada(SolicitudEsperaRechazadaException ex) {
