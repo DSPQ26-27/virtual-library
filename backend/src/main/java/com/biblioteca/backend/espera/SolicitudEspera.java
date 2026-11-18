@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/** Registro mínimo de US10 para comprobar solicitudes pendientes al renovar. */
+/** Solicitud de un estudiante para esperar un ejemplar de un libro (US10). */
 @Entity
 @Table(name = "solicitudes_espera")
 public class SolicitudEspera {
@@ -43,4 +43,5 @@ public class SolicitudEspera {
     public Usuario getUsuario() { return usuario; }
     public LocalDateTime getFechaSolicitud() { return fechaSolicitud; }
     public EstadoSolicitudEspera getEstado() { return estado; }
+
 }
