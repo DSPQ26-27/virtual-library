@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { getMyLoans, LoanError } from "../src/services/loans.js";
 
-const activo = { id: 1, libroId: 2, titulo: "Libro", fechaPrestamo: "2026-11-01T10:00:00", fechaVencimiento: "2026-12-01T10:00:00", fechaDevolucion: null, estado: "ACTIVO" };
+const activo = { id: 1, libroId: 2, titulo: "Libro", fechaPrestamo: "2026-11-01T10:00:00", fechaVencimiento: "2026-12-01T10:00:00", fechaDevolucion: null, estado: "ACTIVO", numeroRenovaciones: 0 };
 const devuelto = { ...activo, id: 3, fechaDevolucion: "2026-11-20T10:00:00", estado: "DEVUELTO" };
 
 test("consulta préstamos e historial usando la sesión", async (t) => {
@@ -21,6 +21,23 @@ test("acepta listas vacías y rechaza respuestas inconsistentes", async (t) => {
   assert.deepEqual(await getMyLoans(), body);
   body = { activos: [devuelto], historial: [] };
   await assert.rejects(getMyLoans(), /formato esperado/);
+});
+
+test("conserva el contador y admite préstamos cancelados en el historial", async (t) => {
+  const data = { activos: [{ ...activo, numeroRenovaciones: 1 }],
+    historial: [{ ...activo, id: 4, estado: "CANCELADO" }] };
+  t.mock.method(globalThis, "fetch", async () => Response.json(data));
+  assert.deepEqual(await getMyLoans(), data);
+});
+
+test("rechaza contadores ausentes o fuera del límite", async (t) => {
+  let numeroRenovaciones;
+  t.mock.method(globalThis, "fetch", async () => Response.json({
+    activos: [{ ...activo, numeroRenovaciones }], historial: [],
+  }));
+  for (numeroRenovaciones of [undefined, -1, 3, 1.5, "1"]) {
+    await assert.rejects(getMyLoans(), /formato esperado/);
+  }
 });
 
 test("conserva los estados 401 y 403", async (t) => {

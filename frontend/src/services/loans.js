@@ -1,6 +1,6 @@
 import { csrfToken } from "./session.js";
 
-/** Error al pedir un préstamo, con el código que envía el backend (US07). */
+/** Error de préstamos, con el código que envía el backend. */
 export class LoanError extends Error {
   constructor(message, status = 0, code = "") {
     super(message);
@@ -86,8 +86,9 @@ function isListedLoan(loan, estado) {
     typeof loan.titulo === "string" && loan.titulo.trim().length > 0 &&
     typeof loan.fechaPrestamo === "string" && Boolean(formatDueDate(loan.fechaPrestamo)) &&
     typeof loan.fechaVencimiento === "string" && Boolean(formatDueDate(loan.fechaVencimiento)) &&
-    loan.estado === estado && (estado === "ACTIVO" ? loan.fechaDevolucion == null :
-      typeof loan.fechaDevolucion === "string" && Boolean(formatDueDate(loan.fechaDevolucion)));
+    Number.isInteger(loan.numeroRenovaciones) && loan.numeroRenovaciones >= 0 && loan.numeroRenovaciones <= 2 &&
+    loan.estado === estado && (estado === "DEVUELTO" ?
+      typeof loan.fechaDevolucion === "string" && Boolean(formatDueDate(loan.fechaDevolucion)) : loan.fechaDevolucion == null);
 }
 
 /** Consulta los préstamos del estudiante de la sesión, con cancelación opcional. */
@@ -113,7 +114,7 @@ export async function getMyLoans({ signal } = {}) {
     }
     if (!data || !Array.isArray(data.activos) || !Array.isArray(data.historial) ||
         !data.activos.every((loan) => isListedLoan(loan, "ACTIVO")) ||
-        !data.historial.every((loan) => isListedLoan(loan, "DEVUELTO"))) {
+        !data.historial.every((loan) => loan && ["DEVUELTO", "CANCELADO"].includes(loan.estado) && isListedLoan(loan, loan.estado))) {
       throw new LoanError("La respuesta de préstamos no tiene el formato esperado.");
     }
     return data;
@@ -124,13 +125,15 @@ export async function getMyLoans({ signal } = {}) {
   }
 }
 
-/** Registra la devolución; el servidor identifica al estudiante por la sesión. */
-export async function returnLoan(prestamoId) {
+/** Devoluciones y renovaciones comparten sesión, CSRF y tratamiento de errores. */
+async function updateLoan(prestamoId, operacion) {
   if (!Number.isSafeInteger(prestamoId) || prestamoId <= 0) throw new LoanError("Préstamo no válido.");
+  const renovacion = operacion === "renovacion";
+  const nombre = renovacion ? "renovación" : "devolución";
   const token = await csrfToken();
   const timeout = AbortSignal.timeout(10000);
   try {
-    const response = await fetch(`/api/prestamos/${prestamoId}/devolucion`, {
+    const response = await fetch(`/api/prestamos/${prestamoId}/${operacion}`, {
       method: "POST", headers: { Accept: "application/json", "X-CSRF-TOKEN": token },
       credentials: "include", cache: "no-store", redirect: "error", signal: timeout,
     });
@@ -138,22 +141,36 @@ export async function returnLoan(prestamoId) {
     try { body = JSON.parse(await response.text()); }
     catch (error) { if (timeout.aborted) throw error; }
     if (response.status === 200) {
-      if (body?.id !== prestamoId || body.estado !== "DEVUELTO" || !formatDueDate(body.fechaDevolucion)) {
-        throw new LoanError("No se pudo confirmar la respuesta de devolución.", 200);
+      const valido = renovacion
+        ? body?.estado === "ACTIVO" && Boolean(formatDueDate(body.fechaVencimiento)) &&
+          Number.isInteger(body.numeroRenovaciones) && body.numeroRenovaciones >= 1 && body.numeroRenovaciones <= 2
+        : body?.estado === "DEVUELTO" && Boolean(formatDueDate(body.fechaDevolucion));
+      if (body?.id !== prestamoId || !valido) {
+        throw new LoanError(`No se pudo confirmar la respuesta de ${nombre}.`, 200);
       }
       return body;
     }
     const messages = {
       401: "Tu sesión ha caducado. Inicia sesión de nuevo.",
-      403: "No se ha podido autorizar la devolución.",
+      403: `No se ha podido autorizar la ${nombre}.`,
       404: "El préstamo no existe o ya no está disponible.",
-      409: "Este préstamo ya ha sido devuelto.",
+      409: renovacion ? "No se puede renovar este préstamo." : "Este préstamo ya ha sido devuelto.",
     };
-    throw new LoanError(messages[response.status] || "No se ha podido confirmar la devolución.",
+    const message = response.status === 401 || response.status === 403 ? messages[response.status] :
+      (typeof body?.message === "string" && body.message) || messages[response.status] || `No se ha podido confirmar la ${nombre}.`;
+    throw new LoanError(message,
       response.status, typeof body?.codigo === "string" ? body.codigo : "");
   } catch (error) {
     if (error instanceof LoanError) throw error;
-    throw new LoanError(timeout.aborted ? "La devolución ha tardado demasiado; comprobaremos su estado." :
-      "No se ha podido confirmar la devolución. Comprobaremos su estado.");
+    throw new LoanError(timeout.aborted ? `La ${nombre} ha tardado demasiado; comprobaremos su estado.` :
+      `No se ha podido confirmar la ${nombre}. Comprobaremos su estado.`);
   }
+}
+
+export function returnLoan(prestamoId) {
+  return updateLoan(prestamoId, "devolucion");
+}
+
+export function renewLoan(prestamoId) {
+  return updateLoan(prestamoId, "renovacion");
 }

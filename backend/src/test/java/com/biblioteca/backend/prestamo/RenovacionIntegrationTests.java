@@ -102,6 +102,8 @@ class RenovacionIntegrationTests {
             assertEquals(numero, guardado.getNumeroRenovaciones());
             assertEquals(vencimiento.plusDays(30L * numero), guardado.getFechaVencimiento());
             assertNull(guardado.getFechaDevolucion());
+            mvc.perform(get("/api/prestamos/mios").with(user(new LibraryUserDetails(d.estudiante()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.activos[0].numeroRenovaciones").value(numero));
         }
         renovar(d.estudiante(), d.prestamo()).andExpect(status().isConflict())
             .andExpect(jsonPath("$.codigo").value("LIMITE_RENOVACIONES"));

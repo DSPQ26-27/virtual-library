@@ -15,7 +15,7 @@ public interface PrestamoRepository extends JpaRepository<Prestamo, Long> {
 
     @Query("""
         SELECT new com.biblioteca.backend.prestamo.PrestamoListadoResponse(
-            p.id, l.id, l.titulo, p.fechaPrestamo, p.fechaVencimiento, p.fechaDevolucion, p.estado)
+            p.id, l.id, l.titulo, p.fechaPrestamo, p.fechaVencimiento, p.fechaDevolucion, p.estado, p.numeroRenovaciones)
         FROM Prestamo p JOIN p.ejemplar e JOIN e.libro l
         WHERE p.usuario.id = :usuarioId
         """)
