@@ -139,3 +139,11 @@ escenarios posibles.
 
 Modelo de datos en [modelo-prestamos.md](modelo-prestamos.md) y validación en
 [validacion-prestamos.md](validacion-prestamos.md).
+
+## Renovación de préstamos (US09)
+
+`POST /api/prestamos/{id}/renovacion` renueva un préstamo propio y devuelve
+`id`, `estado`, `numeroRenovaciones` y `fechaVencimiento`. Requiere sesión de
+estudiante y CSRF, sin cuerpo. Admite dos renovaciones de 30 días sobre el
+vencimiento actual. Las reglas, errores e integración con la lista de espera
+se describen en [renovacion-prestamos.md](renovacion-prestamos.md).

@@ -405,7 +405,7 @@ class EjemplarGestionIntegrationTests {
         assertNull(prestamos.findById(prestamo.getId()).orElseThrow().getFechaDevolucion());
         editar("ADMIN", libroId, id, datos("EJ-CODIGO-CORREGIDO", "PRESTADO"))
             .andExpect(status().isOk()).andExpect(jsonPath("$.codigo").value("EJ-CODIGO-CORREGIDO"));
-        assertTrue(prestamos.existsByEjemplarIdAndFechaDevolucionIsNull(id));
+        assertTrue(prestamos.tienePrestamoActivo(id));
     }
 
     @Test

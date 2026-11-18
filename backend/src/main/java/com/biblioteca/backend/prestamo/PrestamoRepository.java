@@ -29,16 +29,17 @@ public interface PrestamoRepository extends JpaRepository<Prestamo, Long> {
     @Query("SELECT p.ejemplar.libro.id AS libroId, p.ejemplar.id AS ejemplarId FROM Prestamo p WHERE p.id = :id AND p.usuario.id = :usuarioId")
     Optional<UbicacionPrestamo> localizarPropio(@Param("id") Long id, @Param("usuarioId") Long usuarioId);
 
-    /** Para devolución: adquirir antes los bloqueos de usuario, libro y ejemplar, en ese orden. */
+    /** Para devolver o renovar: adquirir antes el bloqueo de usuario y de libro. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Prestamo p WHERE p.id = :id AND p.usuario.id = :usuarioId")
-    Optional<Prestamo> findPropioParaDevolucion(@Param("id") Long id, @Param("usuarioId") Long usuarioId);
+    Optional<Prestamo> findPropioParaActualizar(@Param("id") Long id, @Param("usuarioId") Long usuarioId);
 
-    boolean existsByEjemplarIdAndFechaDevolucionIsNull(Long ejemplarId);
+    @Query("SELECT COUNT(p) > 0 FROM Prestamo p WHERE p.ejemplar.id = :ejemplarId AND p.estado = com.biblioteca.backend.prestamo.EstadoPrestamo.ACTIVO")
+    boolean tienePrestamoActivo(@Param("ejemplarId") Long ejemplarId);
 
     @Query("""
         SELECT DISTINCT p.ejemplar.id FROM Prestamo p
-        WHERE p.ejemplar.id IN :ejemplarIds AND p.fechaDevolucion IS NULL
+        WHERE p.ejemplar.id IN :ejemplarIds AND p.estado = com.biblioteca.backend.prestamo.EstadoPrestamo.ACTIVO
         """)
     Set<Long> findEjemplarIdsConPrestamoActivo(@Param("ejemplarIds") Collection<Long> ejemplarIds);
 

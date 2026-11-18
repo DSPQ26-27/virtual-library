@@ -28,7 +28,7 @@ public interface EjemplarRepository extends JpaRepository<Ejemplar, Long> {
           AND e.estado = com.biblioteca.backend.catalogo.EstadoEjemplar.DISPONIBLE
           AND NOT EXISTS (
               SELECT p.id FROM Prestamo p
-              WHERE p.ejemplar = e AND p.fechaDevolucion IS NULL
+              WHERE p.ejemplar = e AND p.estado = com.biblioteca.backend.prestamo.EstadoPrestamo.ACTIVO
           )
         """)
     Set<Long> findLibrosConEjemplarPrestable(@Param("libroIds") Collection<Long> libroIds);

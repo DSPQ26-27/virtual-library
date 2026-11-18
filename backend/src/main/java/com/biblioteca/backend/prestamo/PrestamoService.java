@@ -5,8 +5,11 @@ import com.biblioteca.backend.catalogo.EjemplarRepository;
 import com.biblioteca.backend.catalogo.Libro;
 import com.biblioteca.backend.catalogo.LibroNoEncontradoException;
 import com.biblioteca.backend.catalogo.LibroRepository;
+import com.biblioteca.backend.espera.EstadoSolicitudEspera;
+import com.biblioteca.backend.espera.SolicitudEsperaRepository;
 import com.biblioteca.backend.usuario.Usuario;
 import com.biblioteca.backend.usuario.UsuarioRepository;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -23,13 +26,15 @@ public class PrestamoService {
     private final UsuarioRepository usuarios;
     private final LibroRepository libros;
     private final EjemplarRepository ejemplares;
+    private final SolicitudEsperaRepository solicitudesEspera;
 
     public PrestamoService(PrestamoRepository prestamos, UsuarioRepository usuarios,
-            LibroRepository libros, EjemplarRepository ejemplares) {
+            LibroRepository libros, EjemplarRepository ejemplares, SolicitudEsperaRepository solicitudesEspera) {
         this.prestamos = prestamos;
         this.usuarios = usuarios;
         this.libros = libros;
         this.ejemplares = ejemplares;
+        this.solicitudesEspera = solicitudesEspera;
     }
 
     @Transactional(readOnly = true)
@@ -38,8 +43,9 @@ public class PrestamoService {
         var activos = propios.stream().filter(p -> p.estado() == EstadoPrestamo.ACTIVO)
             .sorted(Comparator.comparing(PrestamoListadoResponse::fechaVencimiento)
                 .thenComparing(PrestamoListadoResponse::id)).toList();
-        var historial = propios.stream().filter(p -> p.estado() == EstadoPrestamo.DEVUELTO)
-            .sorted(Comparator.comparing(PrestamoListadoResponse::fechaDevolucion).reversed()
+        var historial = propios.stream().filter(p -> p.estado() != EstadoPrestamo.ACTIVO)
+            .sorted(Comparator.comparing(PrestamoListadoResponse::fechaDevolucion,
+                    Comparator.nullsLast(Comparator.reverseOrder()))
                 .thenComparing(PrestamoListadoResponse::id)).toList();
         return new MisPrestamosResponse(activos, historial);
     }
@@ -84,7 +90,7 @@ public class PrestamoService {
         libros.findParaDevolucion(ubicacion.getLibroId()).orElseThrow(PrestamoNoEncontradoException::new);
         Ejemplar ejemplar = ejemplares.findByIdAndLibroId(ubicacion.getEjemplarId(), ubicacion.getLibroId())
             .orElseThrow(PrestamoNoEncontradoException::new);
-        Prestamo prestamo = prestamos.findPropioParaDevolucion(prestamoId, usuarioId)
+        Prestamo prestamo = prestamos.findPropioParaActualizar(prestamoId, usuarioId)
             .orElseThrow(PrestamoNoEncontradoException::new);
         if (!prestamo.isActivo()) throw new PrestamoYaDevueltoException();
         if (!prestamo.getEjemplar().getId().equals(ejemplar.getId())) {
@@ -94,5 +100,39 @@ public class PrestamoService {
         // Punto de integración futuro de US10: decidir si liberar o asignar a la siguiente reserva.
         ejemplar.liberarTrasDevolucion();
         return new DevolucionResponse(prestamo.getId(), prestamo.getEstado(), prestamo.getFechaDevolucion());
+    }
+
+    @Transactional
+    public RenovacionResponse renovar(Long usuarioId, Long prestamoId) {
+        Usuario estudiante = usuarios.findParaPrestamo(usuarioId)
+            .orElseThrow(PrestamoNoEncontradoException::new);
+        var ubicacion = prestamos.localizarPropio(prestamoId, usuarioId)
+            .orElseThrow(PrestamoNoEncontradoException::new);
+        // Mismo orden que US07/US08: serializa con los préstamos y las devoluciones del libro.
+        libros.findParaDevolucion(ubicacion.getLibroId()).orElseThrow(PrestamoNoEncontradoException::new);
+        Prestamo prestamo = prestamos.findPropioParaActualizar(prestamoId, usuarioId)
+            .orElseThrow(PrestamoNoEncontradoException::new);
+
+        if (!prestamo.isActivo() || prestamo.getFechaDevolucion() != null) {
+            throw new RenovacionRechazadaException("PRESTAMO_NO_ACTIVO", "Solo puedes renovar préstamos activos.");
+        }
+        if (!prestamo.getFechaVencimiento().isAfter(LocalDateTime.now())) {
+            throw new RenovacionRechazadaException("PRESTAMO_VENCIDO", "No puedes renovar un préstamo vencido.");
+        }
+        if (prestamo.getNumeroRenovaciones() >= Prestamo.MAX_RENOVACIONES) {
+            throw new RenovacionRechazadaException("LIMITE_RENOVACIONES", "Has alcanzado el límite de 2 renovaciones.");
+        }
+        if (!estudiante.isActivo() || prestamos.tienePrestamosVencidos(usuarioId)) {
+            throw new RenovacionRechazadaException("ESTUDIANTE_BLOQUEADO", "No puedes renovar mientras estés bloqueado.");
+        }
+        if (solicitudesEspera.existsByLibroIdAndEstado(ubicacion.getLibroId(), EstadoSolicitudEspera.PENDIENTE)
+                && ejemplares.findPrestables(ubicacion.getLibroId()).isEmpty()) {
+            throw new RenovacionRechazadaException("LISTA_ESPERA_PENDIENTE",
+                "Hay solicitudes pendientes para este libro y no quedan ejemplares libres.");
+        }
+
+        prestamo.renovar();
+        return new RenovacionResponse(prestamo.getId(), prestamo.getEstado(),
+            prestamo.getNumeroRenovaciones(), prestamo.getFechaVencimiento());
     }
 }
