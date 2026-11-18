@@ -91,6 +91,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/prestamos/mios")
                     .hasRole("STUDENT")
 
+                // Lista de espera: solo estudiantes de la sesión autenticada.
+                .requestMatchers("/api/espera", "/api/espera/**")
+                    .hasRole("STUDENT")
+
                 // Resto de endpoints
                 .anyRequest()
                     .hasAnyRole("STUDENT", "LIBRARIAN", "ADMIN")
