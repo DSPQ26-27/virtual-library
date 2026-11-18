@@ -115,6 +115,59 @@ class AsignacionFifoTests {
     }
 
     @Test
+    void laFechaTienePrioridadSobreElIdentificador() {
+        Usuario propietario = usuario();
+        Usuario primeroInsertado = usuario();
+        Usuario solicitudMasAntigua = usuario();
+        Libro libro = libro();
+        Prestamo anterior = prestamo(libro, propietario);
+        var a = espera.apuntarse(primeroInsertado.getId(), libro.getId());
+        var b = espera.apuntarse(solicitudMasAntigua.getId(), libro.getId());
+        jdbc.update("UPDATE solicitudes_espera SET fecha_solicitud = ? WHERE id = ?",
+                LocalDateTime.now().minusDays(1), a.id());
+        jdbc.update("UPDATE solicitudes_espera SET fecha_solicitud = ? WHERE id = ?",
+                LocalDateTime.now().minusDays(2), b.id());
+        servicio.devolver(propietario.getId(), anterior.getId());
+        assertEquals(EstadoSolicitudEspera.ASIGNADA, solicitudes.findById(b.id()).orElseThrow().getEstado());
+        assertEquals(EstadoSolicitudEspera.PENDIENTE, solicitudes.findById(a.id()).orElseThrow().getEstado());
+    }
+
+    @Test
+    void desempataPorIdYOmiteSolicitudesCanceladas() {
+        Usuario propietario = usuario();
+        Usuario cancelado = usuario();
+        Usuario primero = usuario();
+        Usuario segundo = usuario();
+        Libro libro = libro();
+        Prestamo anterior = prestamo(libro, propietario);
+        var cancelada = espera.apuntarse(cancelado.getId(), libro.getId());
+        var a = espera.apuntarse(primero.getId(), libro.getId());
+        var b = espera.apuntarse(segundo.getId(), libro.getId());
+        espera.cancelar(cancelado.getId(), cancelada.id());
+        jdbc.update("UPDATE solicitudes_espera SET fecha_solicitud = ? WHERE libro_id = ?",
+                LocalDateTime.now().minusDays(1), libro.getId());
+        servicio.devolver(propietario.getId(), anterior.getId());
+        assertEquals(EstadoSolicitudEspera.CANCELADA, solicitudes.findById(cancelada.id()).orElseThrow().getEstado());
+        assertEquals(EstadoSolicitudEspera.ASIGNADA, solicitudes.findById(a.id()).orElseThrow().getEstado());
+        assertEquals(EstadoSolicitudEspera.PENDIENTE, solicitudes.findById(b.id()).orElseThrow().getEstado());
+    }
+
+    @Test
+    void siNadieEsElegibleLiberaElEjemplarYConservaLaEspera() {
+        Usuario propietario = usuario();
+        Usuario esperando = usuario();
+        Libro libro = libro();
+        Prestamo anterior = prestamo(libro, propietario);
+        var solicitud = espera.apuntarse(esperando.getId(), libro.getId());
+        esperando.setActivo(false);
+        usuarios.flush();
+        servicio.devolver(propietario.getId(), anterior.getId());
+        assertEquals(EstadoEjemplar.DISPONIBLE, anterior.getEjemplar().getEstado());
+        assertEquals(EstadoSolicitudEspera.PENDIENTE, solicitudes.findById(solicitud.id()).orElseThrow().getEstado());
+        assertEquals(0, prestamos.countByUsuarioIdAndEstado(esperando.getId(), EstadoPrestamo.ACTIVO));
+    }
+
+    @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void dosDevolucionesSimultaneasNoSuperanCincoPrestamos() throws Exception {
         var tx = new TransactionTemplate(manager);
