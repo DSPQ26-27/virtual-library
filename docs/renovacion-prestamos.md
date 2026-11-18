@@ -113,3 +113,9 @@ simuladas: confirmación, cancelación, contadores, doble clic, rechazos,
 resultado incierto, fallo de recarga, devolución y acceso por rol. Se comprobó
 el diseño a 320, 768 y 1280 px sin desbordamiento horizontal. Esta comprobación
 de navegador no constituye un recorrido completo con PostgreSQL real.
+
+La validación posterior del mismo día sí completó el recorrido real con React,
+Spring Boot y PostgreSQL 17.11: 14 grupos de comprobaciones correctos, incluidas
+las reservas pendientes con y sin copias libres y tres solicitudes HTTP
+simultáneas. Resultados y procedimiento reproducible en
+[validacion-renovaciones.md](validacion-renovaciones.md).

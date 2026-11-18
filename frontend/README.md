@@ -123,6 +123,11 @@ Pruebas del servicio en `tests/renewLoan.test.js` y del flujo de navegador en
 los escenarios de catálogo y ejemplares). La validación detallada figura en
 [renovacion-prestamos.md](../docs/renovacion-prestamos.md).
 
+El recorrido con React, Spring Boot y PostgreSQL reales se ejecuta con
+`tests/renewLoan.postgres.mjs`, sin respuestas HTTP simuladas. Requiere un
+entorno temporal y Playwright disponible; preparación y resultados en
+[validacion-renovaciones.md](../docs/validacion-renovaciones.md).
+
 ## Desarrollo y pruebas
 
 Desde frontend, usando las dependencias existentes:
