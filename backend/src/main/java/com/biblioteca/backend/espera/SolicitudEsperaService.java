@@ -28,6 +28,7 @@ public class SolicitudEsperaService {
 
     @Transactional
     public SolicitudEsperaResponse apuntarse(Long usuarioId, Long libroId) {
+        solicitudes.bloquearOperaciones();
         // Mismo orden de bloqueo que los préstamos: primero usuario y después libro.
         Usuario estudiante = usuarios.findParaPrestamo(usuarioId)
                 .orElseThrow(() -> new IllegalStateException("El usuario de la sesión no existe."));

@@ -44,4 +44,8 @@ public class SolicitudEspera {
     public LocalDateTime getFechaSolicitud() { return fechaSolicitud; }
     public EstadoSolicitudEspera getEstado() { return estado; }
 
+    public void asignar() {
+        estado = EstadoSolicitudEspera.ASIGNADA;
+    }
+
 }

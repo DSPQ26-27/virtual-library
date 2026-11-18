@@ -52,6 +52,7 @@ public class PrestamoService {
 
     @Transactional
     public PrestamoResponse prestar(long usuarioId, long libroId) {
+        solicitudesEspera.bloquearOperaciones();
         // 1. Bloquear al estudiante: sus peticiones simultáneas van de una en una
         Usuario estudiante = usuarios.findParaPrestamo(usuarioId)
             .orElseThrow(() -> new IllegalStateException("El usuario de la sesión no existe."));
@@ -84,6 +85,7 @@ public class PrestamoService {
 
     @Transactional
     public DevolucionResponse devolver(Long usuarioId, Long prestamoId) {
+        solicitudesEspera.bloquearOperaciones();
         usuarios.findParaPrestamo(usuarioId).orElseThrow(PrestamoNoEncontradoException::new);
         var ubicacion = prestamos.localizarPropio(prestamoId, usuarioId)
             .orElseThrow(PrestamoNoEncontradoException::new);
@@ -97,13 +99,16 @@ public class PrestamoService {
             throw new IllegalStateException("El ejemplar del préstamo ha cambiado.");
         }
         prestamo.devolver();
-        // Punto de integración futuro de US10: decidir si liberar o asignar a la siguiente reserva.
         ejemplar.liberarTrasDevolucion();
+        // El préstamo anterior debe estar cerrado en SQL antes de insertar el nuevo.
+        prestamos.flush();
+        asignarSiguiente(ejemplar);
         return new DevolucionResponse(prestamo.getId(), prestamo.getEstado(), prestamo.getFechaDevolucion());
     }
 
     @Transactional
     public RenovacionResponse renovar(Long usuarioId, Long prestamoId) {
+        solicitudesEspera.bloquearOperaciones();
         Usuario estudiante = usuarios.findParaPrestamo(usuarioId)
             .orElseThrow(PrestamoNoEncontradoException::new);
         var ubicacion = prestamos.localizarPropio(prestamoId, usuarioId)
@@ -134,5 +139,29 @@ public class PrestamoService {
         prestamo.renovar();
         return new RenovacionResponse(prestamo.getId(), prestamo.getEstado(),
             prestamo.getNumeroRenovaciones(), prestamo.getFechaVencimiento());
+    }
+
+    private void asignarSiguiente(Ejemplar ejemplar) {
+        if (!ejemplar.isPrestable() || ejemplar.getLibro().isRetirado()) return;
+
+        var cola = solicitudesEspera.findByLibroIdAndEstadoOrderByFechaSolicitudAscIdAsc(
+                ejemplar.getLibro().getId(), EstadoSolicitudEspera.PENDIENTE);
+
+        for (var solicitud : cola) {
+            Usuario estudiante = usuarios.findParaPrestamo(solicitud.getUsuario().getId()).orElseThrow();
+            if (!esElegible(estudiante)) continue;
+
+            ejemplar.prestar();
+            prestamos.saveAndFlush(new Prestamo(ejemplar, estudiante));
+            solicitud.asignar();
+            return;
+        }
+    }
+
+    private boolean esElegible(Usuario estudiante) {
+        return estudiante.isActivo() && "ESTUDIANTE".equals(estudiante.getRol())
+                && !prestamos.tienePrestamosVencidos(estudiante.getId())
+                && prestamos.countByUsuarioIdAndEstado(estudiante.getId(), EstadoPrestamo.ACTIVO)
+                    < MAX_PRESTAMOS_ACTIVOS;
     }
 }
