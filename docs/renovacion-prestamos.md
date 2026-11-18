@@ -68,6 +68,24 @@ bloqueo de la fila del libro antes de modificar sus solicitudes, siguiendo el
 orden usuario → libro cuando necesite ambos. El alta, la cancelación y la
 asignación FIFO de solicitudes corresponden a US10.
 
+## Interfaz del estudiante
+
+La página React «Mis préstamos» reutiliza las tarjetas y los estilos de US08.
+Cada préstamo activo muestra el vencimiento, las renovaciones utilizadas y las
+restantes. El listado `GET /api/prestamos/mios` incluye ahora
+`numeroRenovaciones` para mostrar el contador guardado.
+
+«Renovar préstamo» pide confirmación antes de enviar. «Cancelar» no envía
+ninguna petición. La renovación y la devolución comparten el servicio HTTP y
+el bloqueo de acciones mientras se procesa una operación. Al llegar a dos
+renovaciones, el botón se desactiva con un mensaje explicativo.
+
+Después de la operación se vuelve a consultar el listado para actualizar el
+vencimiento y el contador. Los rechazos muestran el motivo del backend. Si no
+se puede confirmar el resultado, se consulta su estado sin reenviar la
+renovación. Si falla la recarga, no se muestran acciones hasta reintentar.
+Una respuesta 401 expira la sesión.
+
 ## Pruebas
 
 `RenovacionIntegrationTests` comprueba el endpoint, las reglas, los permisos,
@@ -87,3 +105,11 @@ pruebas de renovaciones, préstamos, devoluciones, persistencia y gestión de
 ejemplares, todas correctas. Las 22 pruebas de renovación se incluyen en ambas
 ejecuciones. También se volvió a comprobar en H2 la renovación y la prueba de
 persistencia ajustada para respetar el índice único de PostgreSQL.
+
+Validación de la interfaz del 18/11/2026: 123 pruebas Node y build de Vite
+correctos; 43 pruebas de préstamos y renovaciones en H2 correctas. El escenario
+`frontend/tests/renewLoan.browser.mjs` pasó en Chrome con respuestas HTTP
+simuladas: confirmación, cancelación, contadores, doble clic, rechazos,
+resultado incierto, fallo de recarga, devolución y acceso por rol. Se comprobó
+el diseño a 320, 768 y 1280 px sin desbordamiento horizontal. Esta comprobación
+de navegador no constituye un recorrido completo con PostgreSQL real.

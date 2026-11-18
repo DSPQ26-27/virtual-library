@@ -1,23 +1,35 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext.js";
-import { formatDueDate, getMyLoans, returnLoan } from "../services/loans.js";
+import { formatDueDate, getMyLoans, renewLoan, returnLoan } from "../services/loans.js";
 import "./MisPrestamosPage.css";
 
-function ListaPrestamos({ prestamos, historial, confirmando, setConfirmando, devolver, enviando }) {
+function ListaPrestamos({ prestamos, historial, confirmando, setConfirmando, procesar, enviando }) {
   if (!prestamos.length) return <p>{historial ? "Todavía no tienes devoluciones." : "No tienes préstamos activos."}</p>;
   return <ul className="mis-prestamos__lista">{prestamos.map((prestamo) => (
     <li key={prestamo.id}><article className="mis-prestamos__tarjeta">
       <h4>{prestamo.titulo}</h4>
       <p><strong>Fecha de préstamo:</strong> {formatDueDate(prestamo.fechaPrestamo)}</p>
-      {historial ? <p><strong>Fecha de devolución:</strong> {formatDueDate(prestamo.fechaDevolucion)}</p> :
+      {historial ? prestamo.estado === "DEVUELTO" && <p><strong>Fecha de devolución:</strong> {formatDueDate(prestamo.fechaDevolucion)}</p> :
         <p><strong>Fecha de vencimiento:</strong> {formatDueDate(prestamo.fechaVencimiento)}</p>}
       <p><strong>Estado:</strong> {prestamo.estado}</p>
-      {!historial && (confirmando === prestamo.id ? <div className="mis-prestamos__acciones">
-        <p>¿Devolver «{prestamo.titulo}»?</p>
-        <button type="button" disabled={enviando} onClick={() => devolver(prestamo)}>{enviando ? "Devolviendo…" : "Sí, devolver"}</button>
+      {!historial && <>
+        <p><strong>Renovaciones utilizadas:</strong> {prestamo.numeroRenovaciones} de 2</p>
+        <p><strong>Renovaciones restantes:</strong> {2 - prestamo.numeroRenovaciones}</p>
+        {prestamo.numeroRenovaciones === 2 && <p>No quedan renovaciones disponibles.</p>}
+      </>}
+      {!historial && (confirmando?.id === prestamo.id ? <div className="mis-prestamos__acciones">
+        <p>{confirmando.accion === "renovar" ? `¿Renovar «${prestamo.titulo}» por 30 días?` : `¿Devolver «${prestamo.titulo}»?`}</p>
+        <button type="button" disabled={enviando} onClick={() => procesar(prestamo, confirmando.accion)}>
+          {confirmando.accion === "renovar" ? (enviando ? "Renovando…" : "Sí, renovar") : (enviando ? "Devolviendo…" : "Sí, devolver")}
+        </button>
         <button type="button" disabled={enviando} onClick={() => setConfirmando(null)}>Cancelar</button>
-      </div> : <button type="button" disabled={enviando} onClick={() => setConfirmando(prestamo.id)}
-        aria-label={`Devolver «${prestamo.titulo}»`}>Devolver</button>)}
+      </div> : <div className="mis-prestamos__acciones">
+        <button type="button" disabled={enviando || prestamo.numeroRenovaciones >= 2}
+          onClick={() => setConfirmando({ id: prestamo.id, accion: "renovar" })}
+          aria-label={`Renovar préstamo «${prestamo.titulo}»`}>Renovar préstamo</button>
+        <button type="button" disabled={enviando} onClick={() => setConfirmando({ id: prestamo.id, accion: "devolver" })}
+          aria-label={`Devolver «${prestamo.titulo}»`}>Devolver</button>
+      </div>)}
     </article></li>
   ))}</ul>;
 }
@@ -52,19 +64,21 @@ export default function MisPrestamosPage() {
     return () => { active = false; controller.abort(); };
   }, [revision, expireSession]);
 
-  async function devolver(prestamo) {
+  async function procesar(prestamo, accion) {
     if (ocupado.current) return;
     ocupado.current = true;
     setEnviando(true);
     setAviso({ kind: "", message: "" });
     try {
-      const resultado = await returnLoan(prestamo.id);
+      const resultado = await (accion === "renovar" ? renewLoan(prestamo.id) : returnLoan(prestamo.id));
       if (!mounted.current) return;
-      setAviso({ kind: "success", message: `Devolución de «${prestamo.titulo}» registrada el ${formatDueDate(resultado.fechaDevolucion)}.` });
+      setAviso({ kind: "success", message: accion === "renovar"
+        ? `Préstamo de «${prestamo.titulo}» renovado hasta el ${formatDueDate(resultado.fechaVencimiento)}.`
+        : `Devolución de «${prestamo.titulo}» registrada el ${formatDueDate(resultado.fechaDevolucion)}.` });
     } catch (error) {
       if (!mounted.current) return;
       if (error.status === 401) { expireSession(); return; }
-      setAviso({ kind: "error", message: error.message || "No se ha podido confirmar la devolución." });
+      setAviso({ kind: "error", message: error.message || "No se ha podido confirmar la operación." });
     } finally {
       if (mounted.current) {
         setConfirmando(null);
@@ -88,7 +102,7 @@ export default function MisPrestamosPage() {
     {state.phase === "ready" && <>
       <section aria-labelledby="prestamos-activos"><h3 id="prestamos-activos">Préstamos activos</h3>
         <ListaPrestamos prestamos={state.data.activos} historial={false} confirmando={confirmando}
-          setConfirmando={setConfirmando} devolver={devolver} enviando={enviando} /></section>
+          setConfirmando={setConfirmando} procesar={procesar} enviando={enviando} /></section>
       <section aria-labelledby="prestamos-historial"><h3 id="prestamos-historial">Historial</h3>
         <ListaPrestamos prestamos={state.data.historial} historial /></section>
     </>}

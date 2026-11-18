@@ -81,7 +81,8 @@ Formato: `{ "message": "...", "codigo": "...", "errors": { ... } }`.
 `GET /api/prestamos/mios` requiere sesión de estudiante; no recibe el ID del
 usuario. Devuelve `{ "activos": [...], "historial": [...] }`. Cada elemento
 incluye `id`, `libroId`, `titulo`, `fechaPrestamo`, `fechaVencimiento`,
-`fechaDevolucion` (nula para activos) y `estado`. Los activos se ordenan por
+`fechaDevolucion` (nula para activos), `estado` y `numeroRenovaciones` (de 0 a 2).
+Los activos se ordenan por
 vencimiento ascendente y el historial por devolución descendente, con ID
 ascendente como desempate. Un historial vacío se devuelve como lista vacía.
 Los libros retirados siguen apareciendo. Sin sesión responde 401 y con rol no

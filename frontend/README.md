@@ -105,6 +105,24 @@ Probado a mano con PostgreSQL: un estudiante pide «Don Quijote de la Mancha»,
 recibe EJ-0001 con vencimiento a 30 días y el libro pasa a "Sin ejemplares
 disponibles"; un bibliotecario no ve el botón.
 
+## Renovación de préstamos (US09)
+
+En «Mis préstamos», cada préstamo activo muestra el vencimiento, las
+renovaciones utilizadas y las restantes. «Renovar préstamo» pide confirmación
+y llama a `POST /api/prestamos/{id}/renovacion` con sesión y CSRF. Admite dos
+renovaciones; al agotarlas se desactiva el botón con un mensaje.
+
+La renovación y la devolución reutilizan el mismo servicio HTTP. Durante el
+envío se bloquean las acciones para evitar duplicados. Después se recarga el
+listado, también ante un resultado incierto, y se muestran los motivos de
+rechazo del backend. Si la recarga falla, es necesario reintentar antes de
+volver a operar. Se mantienen las tarjetas y los estilos responsive existentes.
+
+Pruebas del servicio en `tests/renewLoan.test.js` y del flujo de navegador en
+`tests/renewLoan.browser.mjs` (recibe una Page de Playwright del entorno, como
+los escenarios de catálogo y ejemplares). La validación detallada figura en
+[renovacion-prestamos.md](../docs/renovacion-prestamos.md).
+
 ## Desarrollo y pruebas
 
 Desde frontend, usando las dependencias existentes:

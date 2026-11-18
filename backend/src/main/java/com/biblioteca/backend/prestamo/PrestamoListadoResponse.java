@@ -4,4 +4,4 @@ import java.time.LocalDateTime;
 
 public record PrestamoListadoResponse(Long id, Long libroId, String titulo,
     LocalDateTime fechaPrestamo, LocalDateTime fechaVencimiento,
-    LocalDateTime fechaDevolucion, EstadoPrestamo estado) {}
+    LocalDateTime fechaDevolucion, EstadoPrestamo estado, int numeroRenovaciones) {}
