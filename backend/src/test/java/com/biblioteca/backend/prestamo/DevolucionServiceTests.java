@@ -12,9 +12,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.dao.DataIntegrityViolationException;
-import javax.sql.DataSource;
-import org.junit.jupiter.api.Assumptions;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
@@ -27,7 +24,6 @@ class DevolucionServiceTests {
     @Autowired EjemplarRepository ejemplares;
     @Autowired PlatformTransactionManager manager;
     @Autowired JdbcTemplate jdbc;
-    @Autowired DataSource dataSource;
 
     record Datos(Long usuario, Long otro, Long libro, Long ejemplar, Long prestamo) {}
 
@@ -139,17 +135,4 @@ class DevolucionServiceTests {
         } finally { pool.shutdownNow(); pool.awaitTermination(15, TimeUnit.SECONDS); limpiar(d); }
     }
 
-    @Test
-    void postgresImpideDosPrestamosActivosDelMismoEjemplar() throws Exception {
-        try (var conexion = dataSource.getConnection()) {
-            Assumptions.assumeTrue(conexion.getMetaData().getDatabaseProductName().equals("PostgreSQL"));
-        }
-        Datos d = crear(false);
-        try {
-            assertThrows(DataIntegrityViolationException.class, () -> new TransactionTemplate(manager).executeWithoutResult(s ->
-                jdbc.update("INSERT INTO prestamos (ejemplar_id, usuario_id, fecha_prestamo, fecha_vencimiento, estado) "
-                    + "SELECT ejemplar_id, usuario_id, fecha_prestamo, fecha_vencimiento, estado FROM prestamos WHERE id = ?", d.prestamo())));
-            assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM prestamos WHERE ejemplar_id = ? AND estado = 'ACTIVO'", Integer.class, d.ejemplar()));
-        } finally { limpiar(d); }
-    }
 }

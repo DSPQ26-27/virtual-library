@@ -146,7 +146,7 @@ export default async function validateRenewal(page, baseUrl = "http://127.0.0.1:
 
     role = "LIBRARIAN";
     await page.reload();
-    await page.getByText("Solo los estudiantes pueden consultar sus préstamos.", { exact: true }).waitFor();
+    await page.getByText("Esta sección solo está disponible para estudiantes.", { exact: true }).waitFor();
     assert(await page.getByRole("button", { name: /Renovar préstamo/ }).count() === 0, "Un bibliotecario no debe poder renovar");
     checks.push("Acceso limitado a estudiantes");
     assert(protocolErrors.length === 0, protocolErrors.join("; "));

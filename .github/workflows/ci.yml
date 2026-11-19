@@ -1,0 +1,164 @@
+name: CI - Biblioteca Virtual
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend - JUnit, H2 y JaCoCo
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - name: Compilar y ejecutar las pruebas habituales
+        run: mvn --batch-mode --no-transfer-progress test
+      - name: Publicar informes de pruebas y cobertura
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-informes
+          path: |
+            backend/target/site/jacoco/
+            backend/target/surefire-reports/
+          if-no-files-found: warn
+
+  postgres:
+    name: PostgreSQL 17 - Testcontainers
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - name: Comprobar Docker
+        run: docker info
+      - name: Ejecutar pruebas PostgreSQL aisladas
+        run: mvn --batch-mode --no-transfer-progress '-Dtest=*Postgres*IT' -Djacoco.skip=true test
+      - name: Publicar resultados PostgreSQL
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: postgres-informes
+          path: backend/target/surefire-reports/
+          if-no-files-found: warn
+
+  frontend:
+    name: Frontend - JavaScript y React
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run test:unit
+      - run: npm run test:components
+      - run: npm run build
+
+  e2e:
+    name: Playwright - navegador y recorridos reales
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Instalar Chromium y dependencias del sistema
+        run: npx playwright install --with-deps chromium
+      - name: Comprobar Docker
+        run: docker info
+      - name: Pruebas de navegador con API simulada
+        run: npm run test:browser
+      - name: Recorridos reales con PostgreSQL temporal
+        run: npm run test:e2e
+      - name: Publicar informes y trazas
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-informes
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          if-no-files-found: warn
+
+  entrega:
+    name: Entrega - artefactos de main
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [backend, postgres, frontend, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Generar JAR ejecutable
+        working-directory: backend
+        run: mvn --batch-mode --no-transfer-progress -DskipTests package
+      - name: Instalar y compilar frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+      - name: Publicar JAR del backend
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-jar
+          path: backend/target/backend-0.0.1-SNAPSHOT.jar
+          if-no-files-found: error
+      - name: Publicar frontend compilado
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          if-no-files-found: error

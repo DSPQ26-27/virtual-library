@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: biblioteca_performance
+      POSTGRES_USER: perf_user
+      POSTGRES_PASSWORD: ${PERF_DB_PASSWORD:?Defina una contraseña temporal exclusiva}
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U perf_user -d biblioteca_performance"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    networks: [perf]
+  backend:
+    build:
+      context: ../backend/target
+      dockerfile: ../../performance/Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/biblioteca_performance
+      SPRING_DATASOURCE_USERNAME: perf_user
+      SPRING_DATASOURCE_PASSWORD: ${PERF_DB_PASSWORD:?Defina una contraseña temporal exclusiva}
+      DB_PASSWORD: ${PERF_DB_PASSWORD:?Defina una contraseña temporal exclusiva}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${PERF_HTTP_PORT:?Defina un puerto local}:8080"
+    networks: [perf]
+networks:
+  perf: {}
