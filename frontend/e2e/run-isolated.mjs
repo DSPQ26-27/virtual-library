@@ -3,6 +3,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { stripVTControlCharacters } from 'node:util';
 import path from 'node:path';
 
 const frontend = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -31,13 +32,27 @@ function start(command, args, options) {
 }
 async function ready(url, child, started) {
   const end = Date.now() + 150_000;
+  let lastCheck = 'aún no se ha reconocido el mensaje de arranque';
   while (Date.now() < end) {
     if (child.startupError) throw child.startupError;
-    if (child.exitCode !== null) throw new Error(`El proceso terminó antes de arrancar: ${url}`);
-    try { if (started.test(child.startupOutput) && (await fetch(url)).ok) return; } catch { /* aún no está listo */ }
+    if (child.exitCode !== null || child.signalCode !== null) {
+      throw new Error(`El proceso terminó antes de arrancar: ${url} (código: ${child.exitCode}, señal: ${child.signalCode}; última comprobación: ${lastCheck})`);
+    }
+    if (started.test(stripVTControlCharacters(child.startupOutput))) {
+      try {
+        const response = await fetch(url, { signal: AbortSignal.timeout(2_000) });
+        lastCheck = `HTTP ${response.status}`;
+        if (response.ok) {
+          console.log(`Servidor disponible: ${url} (${lastCheck})`);
+          return;
+        }
+      } catch (error) {
+        lastCheck = `error de conexión: ${error.cause?.message || error.message}`;
+      }
+    }
     await delay(500);
   }
-  throw new Error(`No arrancó ${url}`);
+  throw new Error(`No arrancó ${url}; última comprobación: ${lastCheck}`);
 }
 function stop(child) {
   if (!child.pid || child.exitCode !== null) return;

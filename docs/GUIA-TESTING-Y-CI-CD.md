@@ -15,20 +15,19 @@ Esta guía describe la configuración y los resultados disponibles en el espacio
 9. [CI y CD con GitHub Actions](#9-ci-y-cd-con-github-actions)
 10. [Cómo ejecutar las pruebas desde cero](#10-cómo-ejecutar-las-pruebas-desde-cero)
 11. [Resultados y estado](#11-resultados-y-estado)
-12. [Relación con el TFG](#12-relación-con-el-tfg)
 
 ## 1. Conceptos y mapa de pruebas
 
 Una prueba automatizada prepara una situación, ejecuta una acción y compara su resultado con lo esperado mediante **aserciones**. Se puede repetir y detectar regresiones, aunque solo verifica los casos que se hayan diseñado.
 
-| Tipo | Qué comprueba | Ejemplo en el proyecto | Límite |
-|---|---|---|---|
-| Unitaria | Una clase aislada y sus reglas | `PrestamoService` con repositorios simulados | Mockito no demuestra bloqueos ni SQL reales |
-| Integración | Colaboración entre componentes | Spring, seguridad, JPA y H2 | H2 no reproduce todo PostgreSQL |
-| PostgreSQL | Integración con el motor real | Índice parcial, transacciones y concurrencia | Una carrera ensayada no demuestra ausencia de todas las carreras |
-| Componente | Interacción con una parte de la interfaz | Botón de préstamo en React | Un servicio simulado no verifica el servidor |
-| E2E | Recorrido desde un navegador hasta la base | Registro, préstamo y devolución | Es más lenta y cubre solo los recorridos definidos |
-| Rendimiento | Respuesta ante una carga definida | Búsquedas con Gatling y catálogos crecientes | Una prueba breve local no determina la capacidad de producción |
+| Tipo        | Qué comprueba                              | Ejemplo en el proyecto                       | Límite                                                           |
+| ----------- | ------------------------------------------ | -------------------------------------------- | ---------------------------------------------------------------- |
+| Unitaria    | Una clase aislada y sus reglas             | `PrestamoService` con repositorios simulados | Mockito no demuestra bloqueos ni SQL reales                      |
+| Integración | Colaboración entre componentes             | Spring, seguridad, JPA y H2                  | H2 no reproduce todo PostgreSQL                                  |
+| PostgreSQL  | Integración con el motor real              | Índice parcial, transacciones y concurrencia | Una carrera ensayada no demuestra ausencia de todas las carreras |
+| Componente  | Interacción con una parte de la interfaz   | Botón de préstamo en React                   | Un servicio simulado no verifica el servidor                     |
+| E2E         | Recorrido desde un navegador hasta la base | Registro, préstamo y devolución              | Es más lenta y cubre solo los recorridos definidos               |
+| Rendimiento | Respuesta ante una carga definida          | Búsquedas con Gatling y catálogos crecientes | Una prueba breve local no determina la capacidad de producción   |
 
 La **cobertura** mide qué partes del código se ejecutaron; es una ayuda para encontrar zonas no visitadas, no una medida directa de calidad. **CI** automatiza verificaciones al cambiar el código; la **entrega continua** prepara un resultado distribuible. Aquí no hay despliegue automático a producción.
 
@@ -150,13 +149,13 @@ En [SesionInicialSimulation](../performance/src/test/java/com/biblioteca/perform
 
 **Carga** estudia un uso definido; **estrés** lleva el sistema hacia o más allá de sus límites; un **pico** aumenta usuarios o peticiones rápidamente. Estas ejecuciones fueron progresivas y acotadas, no una prueba de estrés extremo.
 
-| Métrica | Interpretación |
-|---|---|
-| Media | Suma de tiempos dividida por número de solicitudes; puede ocultar valores lentos. |
-| p50, p95, p99 | Aproximadamente el 50 %, 95 % o 99 % de las respuestas tardó como máximo ese tiempo. |
+| Métrica                              | Interpretación                                                                         |
+| ------------------------------------ | -------------------------------------------------------------------------------------- |
+| Media                                | Suma de tiempos dividida por número de solicitudes; puede ocultar valores lentos.      |
+| p50, p95, p99                        | Aproximadamente el 50 %, 95 % o 99 % de las respuestas tardó como máximo ese tiempo.   |
 | Throughput / solicitudes por segundo | Cantidad procesada por unidad de tiempo; depende de pausas, duración y carga aplicada. |
-| Usuarios concurrentes | Usuarios virtuales activos simultáneamente, no necesariamente solicitudes simultáneas. |
-| Porcentaje de errores | Solicitudes fallidas dividido por el total; depende también de los checks definidos. |
+| Usuarios concurrentes                | Usuarios virtuales activos simultáneamente, no necesariamente solicitudes simultáneas. |
+| Porcentaje de errores                | Solicitudes fallidas dividido por el total; depende también de los checks definidos.   |
 
 [EntornoSeguro](../performance/src/test/java/com/biblioteca/performance/EntornoSeguro.java) exige un destino local y ejecuta [verificar-entorno.ps1](../performance/verificar-entorno.ps1) antes de la simulación. El [Compose propio](../performance/compose.yml) crea backend y PostgreSQL 17 con almacenamiento temporal y sin publicar la base al host. El verificador inspecciona contenedores, red, puertos y conexión; contrasta un marcador aleatorio en la base con la API autenticada y comprueba sesión y CSRF. Al alcanzar 10.000 libros modifica temporalmente un título existente y lo restaura para no exceder el límite. Es una protección para un entorno local controlado, no una defensa frente a quien pueda alterar Docker durante la ejecución.
 
@@ -183,13 +182,13 @@ Entre las carencias observadas están la traducción de errores de integridad en
 
 GitHub Actions ejecuta un **workflow** YAML formado por **jobs**, cada uno con **steps**, en un **runner**. Un **artefacto** es un archivo o carpeta que se conserva para descargar. El único workflow encontrado es [ci.yml](../.github/workflows/ci.yml): se activa en push a `main`, pull request hacia `main` o manualmente. Utiliza Ubuntu, Java 21 y Node 24; las acciones oficiales configuradas son checkout v7, setup-java v6, setup-node v7 y upload-artifact v7.
 
-| Job | Función |
-|---|---|
-| `backend` | `mvn test`: unitarias, H2 y JaCoCo; publica informes cuando existen. |
-| `postgres` | Comprueba Docker y ejecuta `*Postgres*IT` con Testcontainers; publica Surefire. |
-| `frontend` | `npm ci`, tests Node y React, y `npm run build`. |
-| `e2e` | Instala Chromium, ejecuta navegador simulado y E2E real; publica HTML y trazas disponibles. |
-| `entrega` | Con `needs` de los cuatro anteriores, genera JAR y `dist` solo en `main`, en push o ejecución manual. |
+| Job        | Función                                                                                               |
+| ---------- | ----------------------------------------------------------------------------------------------------- |
+| `backend`  | `mvn test`: unitarias, H2 y JaCoCo; publica informes cuando existen.                                  |
+| `postgres` | Comprueba Docker y ejecuta `*Postgres*IT` con Testcontainers; publica Surefire.                       |
+| `frontend` | `npm ci`, tests Node y React, y `npm run build`.                                                      |
+| `e2e`      | Instala Chromium, ejecuta navegador simulado y E2E real; publica HTML y trazas disponibles.           |
+| `entrega`  | Con `needs` de los cuatro anteriores, genera JAR y `dist` solo en `main`, en push o ejecución manual. |
 
 Un fallo hace fallar su job y bloquea la entrega. `if: always()` intenta publicar informes incluso con fallo, pero si el archivo no llegó a generarse no puede adjuntarse. Las pull requests ejecutan comprobaciones, no entrega. Gatling no corre automáticamente: exige un entorno aislado y una decisión explícita sobre la carga.
 
@@ -199,19 +198,19 @@ El YAML pasó `actionlint` y sus comandos se probaron localmente, pero **no hay 
 
 Requisitos generales en Windows 11: Java 21, Maven o wrapper del backend, Node 24 compatible con el lockfile, Docker Desktop en marcha para PostgreSQL/E2E/Gatling y acceso a las imágenes necesarias. Abra PowerShell en la raíz del repositorio y sitúese en el directorio indicado. Los comandos del frontend usan `npm.cmd` y `npx.cmd` para evitar restricciones de scripts de PowerShell.
 
-| Tipo | Tecnología | Directorio | Comando | Requisitos | Resultado |
-|---|---|---|---|---|---|
-| Unitarias Java | JUnit/Mockito | `backend` | `.\mvnw.cmd test` | Java 21 | Incluye unitarias **y** H2; no es exclusiva. |
-| Integración H2 | Spring/MockMvc/H2 | `backend` | `.\mvnw.cmd test` | Java 21 | Misma ejecución anterior; no repetir para contarla dos veces. |
-| PostgreSQL | JUnit/Testcontainers | `backend` | `.\mvnw.cmd '-Dtest=*Postgres*IT' '-Djacoco.skip=true' test` | Docker | Solo clases PostgreSQL, sin sobrescribir cobertura H2. |
-| JavaScript | Node Test Runner | `frontend` | `npm.cmd run test:unit` | `npm.cmd ci` | Tests de servicios con `fetch` simulado. |
-| React | Vitest/Testing Library | `frontend` | `npm.cmd run test:components` | `npm.cmd ci` | Tests de componentes en jsdom. |
-| Navegador simulado | Playwright | `frontend` | `npm.cmd run test:browser` | Chromium, puerto 5179 libre | Cuatro escenarios con API simulada. |
-| E2E real | Playwright/Spring/PostgreSQL | `frontend` | `npm.cmd run test:e2e` | Chromium, Docker, Java 21 y Maven | Contenedor temporal y cinco recorridos reales. |
-| Sesión rendimiento | Gatling | `performance` | `powershell -NoProfile -ExecutionPolicy Bypass -File .\ejecutar.ps1` | Docker, Java 21 y Maven | Un usuario; informe HTML. |
-| Catálogo rendimiento | Gatling | `performance` | `powershell -NoProfile -ExecutionPolicy Bypass -File .\ejecutar.ps1 -Catalogo` | Los mismos; ejecución explícita | Nueve etapas, máximo 10.000 libros y 10 usuarios. |
-| Cobertura | JaCoCo | `backend` | `.\mvnw.cmd test` | Java 21 | Genera HTML/XML/CSV para la misma suite H2. |
-| CI | GitHub Actions | GitHub | Actions → Run workflow | Código y workflow disponibles en GitHub | Resultados remotos y artefactos, si se generan. |
+| Tipo                 | Tecnología                   | Directorio    | Comando                                                                        | Requisitos                              | Resultado                                                     |
+| -------------------- | ---------------------------- | ------------- | ------------------------------------------------------------------------------ | --------------------------------------- | ------------------------------------------------------------- |
+| Unitarias Java       | JUnit/Mockito                | `backend`     | `.\mvnw.cmd test`                                                              | Java 21                                 | Incluye unitarias **y** H2; no es exclusiva.                  |
+| Integración H2       | Spring/MockMvc/H2            | `backend`     | `.\mvnw.cmd test`                                                              | Java 21                                 | Misma ejecución anterior; no repetir para contarla dos veces. |
+| PostgreSQL           | JUnit/Testcontainers         | `backend`     | `.\mvnw.cmd '-Dtest=*Postgres*IT' '-Djacoco.skip=true' test`                   | Docker                                  | Solo clases PostgreSQL, sin sobrescribir cobertura H2.        |
+| JavaScript           | Node Test Runner             | `frontend`    | `npm.cmd run test:unit`                                                        | `npm.cmd ci`                            | Tests de servicios con `fetch` simulado.                      |
+| React                | Vitest/Testing Library       | `frontend`    | `npm.cmd run test:components`                                                  | `npm.cmd ci`                            | Tests de componentes en jsdom.                                |
+| Navegador simulado   | Playwright                   | `frontend`    | `npm.cmd run test:browser`                                                     | Chromium, puerto 5179 libre             | Cuatro escenarios con API simulada.                           |
+| E2E real             | Playwright/Spring/PostgreSQL | `frontend`    | `npm.cmd run test:e2e`                                                         | Chromium, Docker, Java 21 y Maven       | Contenedor temporal y cinco recorridos reales.                |
+| Sesión rendimiento   | Gatling                      | `performance` | `powershell -NoProfile -ExecutionPolicy Bypass -File .\ejecutar.ps1`           | Docker, Java 21 y Maven                 | Un usuario; informe HTML.                                     |
+| Catálogo rendimiento | Gatling                      | `performance` | `powershell -NoProfile -ExecutionPolicy Bypass -File .\ejecutar.ps1 -Catalogo` | Los mismos; ejecución explícita         | Nueve etapas, máximo 10.000 libros y 10 usuarios.             |
+| Cobertura            | JaCoCo                       | `backend`     | `.\mvnw.cmd test`                                                              | Java 21                                 | Genera HTML/XML/CSV para la misma suite H2.                   |
+| CI                   | GitHub Actions               | GitHub        | Actions → Run workflow                                                         | Código y workflow disponibles en GitHub | Resultados remotos y artefactos, si se generan.               |
 
 Preparación del frontend, una vez situado en `frontend`:
 
@@ -224,28 +223,16 @@ La suite habitual y la PostgreSQL deben ejecutarse por separado. Si se desea eje
 
 ## 11. Resultados y estado
 
-| Grupo | Último resultado conocido | Evidencia y alcance |
-|---|---|---|
-| Backend habitual | 230 superadas, 0 fallidas, 0 omitidas | `backend/target/ci-backend.log`, ejecución local del 19/11/2026; incluye unitarias y H2. |
-| PostgreSQL | 20 superadas, 0 fallidas, 0 omitidas | `backend/target/ci-postgres.log`, ejecución local con Testcontainers; no sumarlas a las 230 como si fueran la misma suite. |
-| JavaScript | 128 superadas | Ejecución local comunicada en la validación anterior; la guía no ha repetido los tests. |
-| React | 11 superadas | Ejecución local comunicada en la validación anterior. |
-| Navegador simulado | 4 superadas | Ejecución local comunicada en la validación anterior; API simulada. |
-| E2E real | 5 superadas | `backend/target/ci-e2e.log` y `frontend/playwright-report/e2e/index.html` actuales; ejecución local. |
-| JaCoCo | 98,5 % líneas; 95,5 % ramas | XML actual; datos de la ejecución H2, no cobertura combinada PostgreSQL. |
-| Gatling | Sesión: 6 solicitudes correctas; catálogo: 9 etapas, 0 errores | Resultados de ejecución local anterior; el registro de catálogo existe en `performance/target/catalogo-progresivo.log`. |
-| GitHub Actions | Workflow implementado y validado estáticamente | Pendiente de ejecutar en GitHub; no afirmar que CI remota ha pasado. |
+| Grupo              | Último resultado conocido                                      | Evidencia y alcance                                                                                                        |
+| ------------------ | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Backend habitual   | 230 superadas, 0 fallidas, 0 omitidas                          | `backend/target/ci-backend.log`, ejecución local del 19/11/2026; incluye unitarias y H2.                                   |
+| PostgreSQL         | 20 superadas, 0 fallidas, 0 omitidas                           | `backend/target/ci-postgres.log`, ejecución local con Testcontainers; no sumarlas a las 230 como si fueran la misma suite. |
+| JavaScript         | 128 superadas                                                  | Ejecución local comunicada en la validación anterior; la guía no ha repetido los tests.                                    |
+| React              | 11 superadas                                                   | Ejecución local comunicada en la validación anterior.                                                                      |
+| Navegador simulado | 4 superadas                                                    | Ejecución local comunicada en la validación anterior; API simulada.                                                        |
+| E2E real           | 5 superadas                                                    | `backend/target/ci-e2e.log` y `frontend/playwright-report/e2e/index.html` actuales; ejecución local.                       |
+| JaCoCo             | 98,5 % líneas; 95,5 % ramas                                    | XML actual; datos de la ejecución H2, no cobertura combinada PostgreSQL.                                                   |
+| Gatling            | Sesión: 6 solicitudes correctas; catálogo: 9 etapas, 0 errores | Resultados de ejecución local anterior; el registro de catálogo existe en `performance/target/catalogo-progresivo.log`.    |
+| GitHub Actions     | Workflow implementado y validado estáticamente                 | Pendiente de ejecutar en GitHub; no afirmar que CI remota ha pasado.                                                       |
 
 Los logs e informes de `target` y del frontend no son fuentes versionadas y pueden reemplazarse. Los 46 tests unitarios aislados son parte de las 230 ejecuciones habituales; no deben sumarse a ellas. Las pruebas PostgreSQL corresponden a otra ejecución. La cobertura tampoco debe sumarse al número de tests.
-
-## 12. Relación con el TFG
-
-La estrategia combina pruebas a distintas escalas para reducir riesgos diferentes. JUnit y Mockito permiten aislar las reglas de préstamos, renovaciones, autenticación y reservas: una prueba puede imponer un límite y comprobar tanto el rechazo como la ausencia de guardado. Las pruebas de entidades reales complementan esos casos al verificar transiciones de estado sin depender de mocks.
-
-Las integraciones con Spring Boot y H2 verifican que controladores, seguridad, servicios, repositorios y mapeos colaboran. La base en memoria facilita ejecuciones repetibles, mientras que MockMvc permite ejercitar solicitudes y respuestas con filtros de seguridad. Esta capa no sustituye la validación del motor utilizado en producción. Por ello, Testcontainers levanta PostgreSQL 17 temporal y ejecuta migraciones, restricciones y escenarios concurrentes sobre el motor real, incluyendo el índice parcial que limita préstamos activos.
-
-En el frontend, Node prueba la lógica de servicios y Vitest con Testing Library comprueba componentes y estados visibles. Las pruebas de navegador con API simulada ayudan a diagnosticar la interfaz; los recorridos E2E reales comprueban la comunicación con el backend y una base aislada. Estos niveles se complementan: un test de componente rápido identifica una regresión local, mientras un E2E puede detectar un problema en la unión de capas.
-
-Gatling aporta una visión temporal de operaciones reales bajo cargas controladas. Sus informes muestran distribuciones y errores, pero las ejecuciones actuales son cortas, locales y con pocos usuarios; no deben presentarse como capacidad de producción. JaCoCo muestra qué código se ejecutó y ayuda a seleccionar casos ausentes, sin garantizar la corrección. Finalmente, el workflow de GitHub Actions describe cómo repetir verificaciones y preparar artefactos sin desplegar; su primera ejecución remota aún debe comprobarse.
-
-El sistema reduce el riesgo de regresiones en los escenarios definidos, pero no prueba todas las combinaciones, todos los navegadores ni todas las intercalaciones concurrentes. Como mejoras futuras caben revisar rutas de integridad no ejecutadas, validar el workflow en GitHub, separar y combinar conscientemente la cobertura PostgreSQL, ampliar la observabilidad de rendimiento y definir un entorno de despliegue con secretos, controles y reversión. Las decisiones deben priorizar riesgos reales y no perseguir porcentajes por sí mismos.
